@@ -1,6 +1,7 @@
 import * as Conn from '../../wailsjs/go/service/ConnectionService'
 import * as Schema from '../../wailsjs/go/service/SchemaService'
 import * as Query from '../../wailsjs/go/service/QueryService'
+import * as Dialogs from '../../wailsjs/go/service/DialogService'
 import type { config, driver, service } from '../../wailsjs/go/models'
 
 export type Profile = config.ConnectionProfile
@@ -26,6 +27,8 @@ export const api = {
   indexes: Schema.Indexes,
   execute: Query.Execute,
   cancel: Query.Cancel,
+  pickSQLiteFile: Dialogs.PickSQLiteFile,
+  createSQLiteFile: Dialogs.CreateSQLiteFile,
 }
 
 export const errMsg = (e: unknown) => (typeof e === 'string' ? e : (e as Error)?.message ?? String(e))

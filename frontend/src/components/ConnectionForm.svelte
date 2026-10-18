@@ -15,6 +15,17 @@
   async function onDriver() {
     p.port = await api.defaultPort(p.driver)
   }
+  // Abre un diálogo nativo; si se cancela ("") conserva la ruta actual.
+  async function pick(dialog: () => Promise<string>) {
+    try {
+      const path = await dialog()
+      if (path) {
+        p.filePath = path
+        if (!p.name.trim()) p.name = path.split(/[\\/]/).pop()!.replace(/\.[^.]+$/, '')
+        status = null
+      }
+    } catch (e) { status = { ok: false, msg: errMsg(e) } }
+  }
   async function test() {
     busy = true; status = null
     try { await api.testConnection(p, password); status = { ok: true, msg: 'Conexión exitosa' } }
@@ -39,7 +50,13 @@
       </select>
     </label>
     {#if isSqlite}
-      <label>Archivo (.db) <input bind:value={p.filePath} placeholder="/ruta/base.db" /></label>
+      <label>Archivo SQLite
+        <div class="file">
+          <input bind:value={p.filePath} placeholder="/ruta/base.db" />
+          <button type="button" onclick={() => pick(api.pickSQLiteFile)} disabled={busy}>Examinar…</button>
+          <button type="button" onclick={() => pick(api.createSQLiteFile)} disabled={busy} title="Crear un archivo de base de datos nuevo">Nueva…</button>
+        </div>
+      </label>
     {:else}
       <div class="row">
         <label style="flex:3">Host <input bind:value={p.host} /></label>
@@ -89,6 +106,8 @@
   h3 { margin: 0 0 4px; }
   label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); flex: 1; }
   .row { display: flex; gap: 10px; }
+  .file { display: flex; gap: 6px; }
+  .file button { white-space: nowrap; }
   .actions { display: flex; gap: 8px; margin-top: 6px; }
   .status { margin: 0; color: var(--danger); word-break: break-word; }
   .status.ok { color: var(--ok); }

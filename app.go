@@ -15,6 +15,7 @@ type App struct {
 	Connections *service.ConnectionService
 	Schema      *service.SchemaService
 	Query       *service.QueryService
+	Dialogs     *service.DialogService
 }
 
 func NewApp() (*App, error) {
@@ -28,9 +29,13 @@ func NewApp() (*App, error) {
 		Connections: service.NewConnectionService(store, sess),
 		Schema:      service.NewSchemaService(sess),
 		Query:       service.NewQueryService(sess),
+		Dialogs:     service.NewDialogService(),
 	}, nil
 }
 
-func (a *App) startup(ctx context.Context) { a.ctx = ctx }
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
+	a.Dialogs.SetContext(ctx)
+}
 
 func (a *App) shutdown(context.Context) { a.sess.CloseAll() }

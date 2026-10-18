@@ -3,7 +3,11 @@ package driver
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	_ "modernc.org/sqlite"
@@ -20,10 +24,31 @@ func (sqlite) DriverName() string { return "sqlite" }
 func (sqlite) DefaultPort() int   { return 0 }
 
 func (sqlite) DSN(p config.ConnectionProfile, _, _ string) string {
-	if p.FilePath == "" {
-		return ":memory:"
+	// URI con la ruta escapada: espacios, '#', '?' o '%' en el nombre no rompen el DSN.
+	path := filepath.ToSlash(p.FilePath)
+	if len(path) >= 2 && path[1] == ':' { // C:\datos\x.db → /C:/datos/x.db
+		path = "/" + path
 	}
-	return "file:" + p.FilePath + "?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)"
+	u := url.URL{Scheme: "file", Path: path, RawQuery: "_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)"}
+	return u.String()
+}
+
+// Open comprueba que el archivo exista: sin esta comprobación SQLite crearía
+// en silencio una base vacía ante cualquier error de ruta.
+func (d sqlite) Open(p config.ConnectionProfile, password, database string) (*sql.DB, error) {
+	if p.FilePath == "" {
+		return nil, errors.New("indica el archivo de la base de datos SQLite")
+	}
+	st, err := os.Stat(p.FilePath)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return nil, fmt.Errorf("el archivo no existe: %s", p.FilePath)
+	case err != nil:
+		return nil, err
+	case st.IsDir():
+		return nil, fmt.Errorf("%s es una carpeta, no un archivo", p.FilePath)
+	}
+	return sql.Open(d.DriverName(), d.DSN(p, password, database))
 }
 
 // SQLite: una sola base ("main") y sin esquemas.

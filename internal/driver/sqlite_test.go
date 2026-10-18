@@ -3,6 +3,8 @@ package driver
 import (
 	"context"
 	"database/sql"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -77,5 +79,50 @@ func TestLegacyTLSDSN(t *testing.T) {
 	p.TLSMinVersion = ""
 	if got := ms.DSN(p, "p", ""); strings.Contains(got, "tlsmin") {
 		t.Errorf("tlsmin no debería estar: %s", got)
+	}
+}
+
+func TestSQLiteOpenPaths(t *testing.T) {
+	d, _ := Get("sqlite")
+	open := d.(Opener).Open
+
+	// Nombres con caracteres que romperían una URI sin escapar.
+	for _, name := range []string{"con espacio.db", "almohadilla #1.db", "pregunta ?.db", "100% real.db", "ñandú.sqlite3"} {
+		path := filepath.Join(t.TempDir(), name)
+		if err := os.WriteFile(path, nil, 0o644); err != nil { // archivo vacío = base vacía
+			t.Fatal(err)
+		}
+		db, err := open(config.ConnectionProfile{FilePath: path}, "", "")
+		if err != nil {
+			t.Fatalf("%q: %v", name, err)
+		}
+		if _, err := db.Exec(`CREATE TABLE t (id INTEGER)`); err != nil {
+			t.Fatalf("%q: %v", name, err)
+		}
+		db.Close()
+		// La base debe haberse escrito en ESE archivo y no en otro derivado del nombre.
+		if st, err := os.Stat(path); err != nil || st.Size() == 0 {
+			t.Errorf("%q: el archivo no recibió los datos (%v)", name, err)
+		}
+		if entries, _ := os.ReadDir(filepath.Dir(path)); len(entries) != 1 {
+			t.Errorf("%q: se crearon archivos extra: %v", name, entries)
+		}
+	}
+
+	missing := filepath.Join(t.TempDir(), "no-existe.db")
+	cases := map[string]config.ConnectionProfile{
+		"no existe":  {FilePath: missing},
+		"es carpeta": {FilePath: t.TempDir()},
+		"ruta vacía": {},
+	}
+	for name, p := range cases {
+		if _, err := open(p, "", ""); err == nil {
+			t.Errorf("%s: debería fallar", name)
+		} else {
+			t.Logf("%s → %v", name, err)
+		}
+	}
+	if _, err := os.Stat(missing); err == nil {
+		t.Error("abrir un archivo inexistente no debe crearlo")
 	}
 }
