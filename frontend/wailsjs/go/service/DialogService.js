@@ -6,8 +6,16 @@ export function CreateSQLiteFile() {
   return window['go']['service']['DialogService']['CreateSQLiteFile']();
 }
 
+export function OpenSQLFile() {
+  return window['go']['service']['DialogService']['OpenSQLFile']();
+}
+
 export function PickSQLiteFile() {
   return window['go']['service']['DialogService']['PickSQLiteFile']();
+}
+
+export function SaveSQLFile(arg1, arg2, arg3) {
+  return window['go']['service']['DialogService']['SaveSQLFile'](arg1, arg2, arg3);
 }
 
 export function SetContext(arg1) {

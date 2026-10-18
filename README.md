@@ -88,13 +88,16 @@ make dev
 7. **Modificar la estructura:** en la vista *Estructura* puedes añadir, modificar, renombrar y eliminar columnas (lápiz de cada fila), crear y eliminar índices, añadir y eliminar claves foráneas, y renombrar o eliminar la tabla. Para crear una tabla nueva, pasa el ratón por la base de datos o el esquema en el árbol y pulsa **+**.
    Cada cambio muestra primero el **SQL exacto** que se va a ejecutar, con avisos (operaciones destructivas, datos que pueden no encajar…), y solo se ejecuta al confirmar. En PostgreSQL, SQLite y SQL Server las sentencias van en una transacción; **MySQL no admite DDL transaccional** y lo avisa. SQLite no permite con `ALTER TABLE` modificar columnas ni añadir o borrar claves foráneas: lo dice con un mensaje claro en vez de recrear la tabla en silencio.
 8. En una pestaña de consulta, escribe SQL y pulsa **Ctrl+Enter** (o **▶ Ejecutar**) para ejecutar la selección, o todo el texto si no hay selección. **■ Cancelar** interrumpe una consulta en curso.
-9. Edita una conexión con **✎** o doble clic, y elimínala con **✕**.
+9. **Archivos .sql:** **Abrir** (`Ctrl+O`) carga un script en una pestaña nueva y **Guardar** (`Ctrl+S`) lo escribe en su archivo; **Guardar como…** (`Ctrl+Shift+S`) elige otro destino. La pestaña muestra un punto si tiene cambios sin guardar y pide confirmación al cerrarla. Se conserva el fin de línea del archivo (CRLF o LF) y la escritura es atómica. Solo se abren archivos de texto UTF-8 de hasta 10 MB.
+10. **Historial y consultas guardadas** (`Ctrl+H`): cada ejecución de la conexión queda registrada con su duración, filas y error si lo hubo; las ejecuciones consecutivas idénticas se agrupan (`×3`). Haz clic en una entrada para abrirla en una pestaña nueva, o guárdala con un nombre en *Guardadas* (sirven para cualquier conexión).
+11. Edita una conexión con **✎** o doble clic, y elimínala con **✕**.
 
 Los resultados de una consulta se limitan a 1000 filas; la barra inferior avisa si se truncaron.
 
 ### Dónde se guardan los datos
 
 - **Conexiones:** `connections.json` en el directorio de configuración del usuario (`~/.config/pluton-sql/` en Linux, `%AppData%\pluton-sql\` en Windows). No contiene contraseñas.
+- **Historial y consultas guardadas:** `history.json` y `saved_queries.json` en la misma carpeta, con permisos `0600`. **Guardan el SQL tal cual se ejecutó**, así que pueden contener datos sensibles (por ejemplo un `INSERT` con contraseñas): el historial se limita a 500 entradas por conexión y se borra al eliminar la conexión o con **Borrar historial**.
 - **Contraseñas:** en el llavero del sistema (Secret Service en Linux, Credential Manager en Windows). En Linux necesitas un servicio de llavero activo, como GNOME Keyring o KWallet.
 
 ### Servidores antiguos con TLS 1.0 / 1.1

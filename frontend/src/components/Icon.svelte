@@ -26,6 +26,12 @@
     key: ['M15 7a4 4 0 1 1-1.2 2.8L3 20v-3h3v-3h3l1.8-1.8A4 4 0 0 1 15 7z'],
     sidebar: ['M3 4h18v16H3z', 'M9 4v16'],
     sql: ['M8 6 3 12l5 6', 'M16 6l5 6-5 6'],
+    folder: ['M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
+    save: ['M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z', 'M7 3v5h8V3', 'M7 21v-7h10v7'],
+    clock: ['M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z', 'M12 7v5l3 2'],
+    bookmark: ['M6 3h12v18l-6-4-6 4z'],
+    copy: ['M9 9h11v11H9z', 'M5 15V5a1 1 0 0 1 1-1h10'],
+    file: ['M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z', 'M14 3v5h5'],
   }
   let { name, size = 16 }: { name: string; size?: number } = $props()
   const fill = $derived(name === 'play' || name === 'stop')

@@ -9,6 +9,9 @@
   import ConnectionForm from './components/ConnectionForm.svelte'
   import ConfirmDialog from './components/ConfirmDialog.svelte'
   import SchemaChangeDialog from './components/SchemaChangeDialog.svelte'
+  import HistoryPanel from './components/HistoryPanel.svelte'
+  import PromptDialog from './components/PromptDialog.svelte'
+  import Toasts from './components/Toasts.svelte'
   import { ui } from './lib/ui.svelte'
   import { ws } from './lib/workspace.svelte'
   import type { Profile } from './lib/api'
@@ -20,6 +23,7 @@
   let sidebarW = $state<number>(saved.sidebarW ?? 280)
   let sidebarOpen = $state<boolean>(saved.sidebarOpen ?? true)
   let editorPct = $state<number>(saved.editorPct ?? 42)
+  let historyOpen = $state<boolean>(saved.historyOpen ?? false)
 
   ws.loadProfiles()
 
@@ -30,7 +34,7 @@
     return () => clearTimeout(h)
   })
   $effect(() => {
-    const layout = JSON.stringify({ sidebarW, sidebarOpen, editorPct })
+    const layout = JSON.stringify({ sidebarW, sidebarOpen, editorPct, historyOpen })
     const h = setTimeout(() => { try { localStorage.setItem(LAYOUT, layout) } catch { /* no crítico */ } }, 300)
     return () => clearTimeout(h)
   })
@@ -46,7 +50,9 @@
     else if (mod && (e.key === 'PageUp' || (e.key === 'Tab' && e.shiftKey))) { e.preventDefault(); ws.step(-1) }
     else if (e.altKey && /^[1-9]$/.test(e.key)) { e.preventDefault(); ws.selectNth(Number(e.key) - 1) }
     else if (e.key === 'F5') { e.preventDefault(); if (ws.dataTab) ws.dataTab.state.reload(); else ws.run() }
-    else if (mod && k === 's') { e.preventDefault(); ws.dataTab?.state.apply() }
+    else if (mod && k === 's') { e.preventDefault(); if (ws.dataTab) void ws.dataTab.state.apply(); else void ws.saveFile(ws.queryTab, e.shiftKey) }
+    else if (mod && k === 'o') { e.preventDefault(); if (ws.active) void ws.openFile() }
+    else if (mod && k === 'h') { e.preventDefault(); if (ws.queryTab) historyOpen = !historyOpen }
     else if (mod && e.key === '.') { e.preventDefault(); ws.cancel() }
   }
 
@@ -83,9 +89,15 @@
             <Icon name="play" size={12} /> Ejecutar
           </button>
           <button onclick={() => ws.cancel()} disabled={!q.running}><Icon name="stop" size={12} /> Cancelar</button>
+          <span class="sep"></span>
+          <button class="ghost" title="Abrir un script .sql (Ctrl+O)" onclick={() => ws.openFile()}><Icon name="folder" size={14} /> Abrir</button>
+          <button class="ghost" title={q.filePath ? `Guardar en ${q.filePath} (Ctrl+S)` : 'Guardar como archivo .sql (Ctrl+S)'} onclick={() => ws.saveFile(q)}><Icon name="save" size={14} /> Guardar</button>
+          {#if q.filePath}<button class="ghost" title="Guardar como… (Ctrl+Shift+S)" onclick={() => ws.saveFile(q, true)}>Guardar como…</button>{/if}
           <span class="grow"></span>
           <span class="keys"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> ejecuta la selección o todo</span>
+          <button class="ghost" class:active={historyOpen} title="Historial y consultas guardadas (Ctrl+H)" aria-pressed={historyOpen} onclick={() => (historyOpen = !historyOpen)}><Icon name="clock" size={14} /> Historial</button>
         </div>
+        <div class="body">
         <div class="work">
           <div class="editor" style:height="{editorPct}%">
             {#key q.id}
@@ -94,6 +106,8 @@
           </div>
           <div class="hsplit" role="separator" aria-orientation="horizontal" aria-label="Redimensionar editor" onpointerdown={(e) => drag(e, 'y')}></div>
           <div class="results"><ResultGrid result={q.result} error={q.error} running={q.running} /></div>
+        </div>
+        {#if historyOpen}<HistoryPanel onclose={() => (historyOpen = false)} />{/if}
         </div>
       {:else if ws.dataTab}
         {#key ws.dataTab.id}<TableView tab={ws.dataTab} />{/key}
@@ -123,6 +137,8 @@
   {/key}
 {/if}
 <ConfirmDialog />
+<PromptDialog />
+<Toasts />
 
 <style>
   .app { display: grid; grid-template-rows: 1fr 26px; height: 100%; background: var(--surface); }
@@ -133,7 +149,10 @@
   .toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--surface); }
   .grow { flex: 1; }
   .keys { color: var(--muted); font-size: 12px; }
-  .work { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .body { flex: 1; display: flex; min-height: 0; }
+  .work { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 2px; }
+  button.active { background: var(--accent-soft); color: var(--accent); }
   .editor { min-height: 60px; }
   .hsplit { height: 5px; margin: -2px 0; cursor: row-resize; position: relative; z-index: 5; background: transparent; border-top: 1px solid var(--border); }
   .hsplit:hover, .hsplit:active { background: var(--accent); opacity: .5; }

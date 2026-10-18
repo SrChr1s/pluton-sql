@@ -10,8 +10,6 @@ import (
 	"time"
 	"unicode"
 	"unicode/utf8"
-
-	"github.com/SrChr1s/pluton-sql/internal/session"
 )
 
 // DefaultRowLimit evita saturar el webview con resultados enormes.
@@ -26,14 +24,20 @@ type QueryResult struct {
 	IsQuery      bool     `json:"isQuery"`
 }
 
+// Recorder registra cada ejecución (lo implementa el historial). Es opcional.
+type Recorder interface {
+	Record(profile, database, sql string, durationMs, rows int64, isQuery bool, errMsg string)
+}
+
 type QueryService struct {
-	sess    *session.Manager
+	pools   Pools
+	rec     Recorder
 	mu      sync.Mutex
 	running map[string]context.CancelFunc
 }
 
-func NewQueryService(sess *session.Manager) *QueryService {
-	return &QueryService{sess: sess, running: map[string]context.CancelFunc{}}
+func NewQueryService(pools Pools, rec Recorder) *QueryService {
+	return &QueryService{pools: pools, rec: rec, running: map[string]context.CancelFunc{}}
 }
 
 // Execute ejecuta sqlText. queryID lo elige el frontend para poder cancelar.
@@ -49,11 +53,33 @@ func (s *QueryService) Execute(queryID, profileID, database, sqlText string) (*Q
 		s.mu.Unlock()
 	}()
 
-	db, _, err := s.sess.Get(ctx, profileID, database)
+	db, _, err := s.pools.Get(ctx, profileID, database)
 	if err != nil {
-		return nil, err
+		return nil, err // no hubo ejecución: no se registra en el historial
 	}
 	start := time.Now()
+	res, err := s.run(ctx, db, sqlText)
+	if res != nil {
+		res.DurationMs = time.Since(start).Milliseconds()
+	}
+	if s.rec != nil {
+		var rows int64
+		isQuery := returnsRows(sqlText)
+		msg := ""
+		switch {
+		case err != nil:
+			msg = err.Error()
+		case res != nil && res.IsQuery:
+			rows = int64(len(res.Rows))
+		case res != nil:
+			rows = res.RowsAffected
+		}
+		s.rec.Record(profileID, database, sqlText, time.Since(start).Milliseconds(), rows, isQuery, msg)
+	}
+	return res, err
+}
+
+func (s *QueryService) run(ctx context.Context, db *sql.DB, sqlText string) (*QueryResult, error) {
 	res := &QueryResult{Columns: []string{}, Rows: [][]any{}}
 	if returnsRows(sqlText) {
 		res.IsQuery = true
@@ -72,7 +98,6 @@ func (s *QueryService) Execute(queryID, profileID, database, sqlText string) (*Q
 		}
 		res.RowsAffected, _ = r.RowsAffected()
 	}
-	res.DurationMs = time.Since(start).Milliseconds()
 	return res, nil
 }
 

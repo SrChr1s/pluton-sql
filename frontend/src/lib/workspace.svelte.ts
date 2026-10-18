@@ -1,5 +1,6 @@
 import { api, errMsg, type Profile, type QueryResult } from './api'
 import { TableState, type TableLocation } from './table.svelte'
+import { ui } from './ui.svelte'
 
 export type QueryTab = {
   kind: 'query'
@@ -11,6 +12,10 @@ export type QueryTab = {
   error: string
   running: boolean
   queryId: string
+  /** Archivo .sql asociado ('' = consulta sin archivo). savedSql es lo último guardado/abierto, para detectar cambios. */
+  filePath: string
+  savedSql: string
+  crlf: boolean
 }
 
 /** Pestaña con los datos de una tabla, editables. */
@@ -40,6 +45,8 @@ class Workspace {
   private counter = 0
   /** Sube cuando cambian las tablas (crear/renombrar/borrar) para que el árbol de esquema se recargue. */
   schemaVersion = $state(0)
+  /** Sube tras cada ejecución para que el panel de historial se actualice. */
+  historyVersion = $state(0)
 
   get tabs(): Tab[] {
     return this.active ? (this.tabsByProfile[this.active.id] ?? []) : []
@@ -96,7 +103,13 @@ class Workspace {
       sql: opts.sql ?? '',
       database: opts.database ?? this.tab?.database ?? '',
       result: null, error: '', running: false, queryId: '',
+      filePath: '', savedSql: '', crlf: false,
     })
+  }
+
+  /** ¿Tiene la pestaña de consulta cambios sin guardar en su archivo? */
+  isDirty(t: Tab): boolean {
+    return t.kind === 'query' && t.filePath !== '' && t.sql !== t.savedSql
   }
 
   select(id: string) {
@@ -112,6 +125,14 @@ class Workspace {
     if (i < 0) return
     const t = tabs[i]
     if (t.kind === 'table' && !(await t.state.canDiscard('cierras la pestaña'))) return
+    if (this.isDirty(t)) {
+      const ok = await ui.confirm({
+        title: `Cambios sin guardar en ${t.title}`,
+        message: 'Si cierras la pestaña se perderán los cambios que no hayas guardado en el archivo.',
+        confirmLabel: 'Descartar cambios', danger: true,
+      })
+      if (!ok) return
+    }
     if (t.kind === 'query' && t.running) api.cancel(t.queryId)
     const rest = this.tabsByProfile[p.id].filter((x) => x.id !== id)
     this.tabsByProfile[p.id] = rest
@@ -148,11 +169,47 @@ class Workspace {
       t.result = null
     }
     t.running = false
+    this.historyVersion++
   }
 
   cancel() {
     const t = this.queryTab
     if (t?.running) api.cancel(t.queryId)
+  }
+
+  /** Abre un script .sql en una pestaña nueva (si ya está abierto, solo la selecciona). */
+  async openFile() {
+    try {
+      const f = await api.openSqlFile()
+      if (!f || !this.active) return
+      const open = this.tabs.find((t): t is QueryTab => t.kind === 'query' && t.filePath === f.path)
+      if (open) return this.select(open.id)
+      const t = this.newTab({ title: f.name, sql: f.content })
+      if (t) { t.filePath = f.path; t.savedSql = f.content; t.crlf = f.crlf }
+    } catch (e) {
+      ui.toast(`No se pudo abrir el archivo: ${errMsg(e)}`, 'err')
+    }
+  }
+
+  /** Guarda la pestaña en su archivo; sin archivo (o con saveAs) pregunta dónde. */
+  async saveFile(t: QueryTab | null = this.queryTab, saveAs = false) {
+    if (!t) return
+    try {
+      const path = await api.saveSqlFile(saveAs ? '' : t.filePath, t.sql, t.crlf)
+      if (!path) return // cancelado
+      t.filePath = path
+      t.savedSql = t.sql
+      t.title = path.split(/[\\/]/).pop() ?? t.title
+      ui.toast(`Guardado en ${path}`)
+    } catch (e) {
+      ui.toast(`No se pudo guardar: ${errMsg(e)}`, 'err')
+    }
+  }
+
+  /** Abre un SQL (de historial o consulta guardada) en una pestaña nueva, sin tocar las existentes. */
+  openSql(sql: string, title: string) {
+    const t = this.newTab({ title, sql })
+    return t
   }
 
   /** Abre los datos de una tabla en una pestaña editable (reutiliza la pestaña si ya está abierta). */
@@ -209,7 +266,7 @@ class Workspace {
   /** Cambia cuando cambia cualquier borrador; sirve para disparar el guardado. */
   get signature(): string {
     return JSON.stringify(
-      Object.entries(this.tabsByProfile).map(([id, ts]) => [id, ts.filter((t) => t.kind === 'query').map((t) => [t.title, t.sql, t.database])]),
+      Object.entries(this.tabsByProfile).map(([id, ts]) => [id, ts.filter((t) => t.kind === 'query').map((t) => [t.title, t.sql, t.database, t.filePath, t.savedSql])]),
     )
   }
 
@@ -218,17 +275,18 @@ class Workspace {
     for (const [id, tabs] of Object.entries(this.tabsByProfile)) {
       try {
         const qs = tabs.filter((t): t is QueryTab => t.kind === 'query')
-        localStorage.setItem(STORE + id, JSON.stringify(qs.map((t) => ({ title: t.title, sql: t.sql, database: t.database }))))
+        localStorage.setItem(STORE + id, JSON.stringify(qs.map((t) => ({ title: t.title, sql: t.sql, database: t.database, filePath: t.filePath, savedSql: t.savedSql, crlf: t.crlf }))))
       } catch { /* sin almacenamiento: se pierde el borrador, nada más */ }
     }
   }
 
   private restore(profileId: string): Tab[] {
     try {
-      const raw = JSON.parse(localStorage.getItem(STORE + profileId) ?? '[]') as Pick<QueryTab, 'title' | 'sql' | 'database'>[]
+      const raw = JSON.parse(localStorage.getItem(STORE + profileId) ?? '[]') as Pick<QueryTab, 'title' | 'sql' | 'database' | 'filePath' | 'savedSql' | 'crlf'>[]
       return raw.map((r): QueryTab => ({
         kind: 'query', id: crypto.randomUUID(), title: r.title, sql: r.sql, database: r.database ?? '',
         result: null, error: '', running: false, queryId: '',
+        filePath: r.filePath ?? '', savedSql: r.savedSql ?? '', crlf: r.crlf ?? false,
       }))
     } catch {
       return []

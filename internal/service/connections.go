@@ -13,10 +13,12 @@ import (
 type ConnectionService struct {
 	store *config.Store
 	sess  *session.Manager
+	// onDelete limpia los datos asociados a una conexión (p. ej. su historial) al eliminarla.
+	onDelete func(profileID string)
 }
 
-func NewConnectionService(store *config.Store, sess *session.Manager) *ConnectionService {
-	return &ConnectionService{store: store, sess: sess}
+func NewConnectionService(store *config.Store, sess *session.Manager, onDelete func(profileID string)) *ConnectionService {
+	return &ConnectionService{store: store, sess: sess, onDelete: onDelete}
 }
 
 // Drivers lista los motores soportados.
@@ -54,7 +56,13 @@ func (s *ConnectionService) Delete(id string) error {
 	if err := secrets.Delete(id); err != nil {
 		return err
 	}
-	return s.store.Delete(id)
+	if err := s.store.Delete(id); err != nil {
+		return err
+	}
+	if s.onDelete != nil {
+		s.onDelete(id)
+	}
+	return nil
 }
 
 // Test prueba una conexión sin guardarla. Si password está vacía y el perfil

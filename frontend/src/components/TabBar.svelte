@@ -9,13 +9,16 @@
   {#each ws.tabs as t, i (t.id)}
     <div class="tab" class:sel={ws.tab?.id === t.id} role="tab" tabindex="0" aria-selected={ws.tab?.id === t.id}
          onclick={() => ws.select(t.id)} onauxclick={(e) => e.button === 1 && ws.close(t.id)}
-         onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && ws.select(t.id)} title="{t.title}{i < 9 ? ` (Alt+${i + 1})` : ''}">
-      {#if t.kind === 'query'}
+         onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && ws.select(t.id)} title="{t.kind === 'query' && t.filePath ? t.filePath : t.title}{i < 9 ? ` (Alt+${i + 1})` : ''}">
+      {#if t.kind === 'query' && t.filePath}
+        <span class="kind" title={t.filePath}><Icon name="file" size={13} /></span>
+      {:else if t.kind === 'query'}
         <span class="dot" class:running={t.running} class:err={!!t.error}></span>
       {:else}
         <span class="kind"><Icon name="table" size={13} /></span>
       {/if}
       <span class="title">{t.title}</span>
+      {#if t.kind === 'query' && ws.isDirty(t)}<span class="pend" title="Cambios sin guardar en {t.filePath}"></span>{/if}
       {#if t.kind === 'table' && t.state.pending > 0}<span class="pend" title="{t.state.pending} cambio(s) sin aplicar"></span>{/if}
       <button class="ghost icon close" aria-label="Cerrar pestaña" onclick={(e) => { e.stopPropagation(); ws.close(t.id) }}>
         <Icon name="x" size={13} />

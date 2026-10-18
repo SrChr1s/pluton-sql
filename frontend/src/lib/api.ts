@@ -3,9 +3,11 @@ import * as Schema from '../../wailsjs/go/service/SchemaService'
 import * as Query from '../../wailsjs/go/service/QueryService'
 import * as Dialogs from '../../wailsjs/go/service/DialogService'
 import * as Data from '../../wailsjs/go/service/DataService'
+import * as History from '../../wailsjs/go/service/HistoryService'
+import * as SavedQ from '../../wailsjs/go/service/SavedQueryService'
 import * as Structure from '../../wailsjs/go/service/StructureService'
 import * as SchemaEdit from '../../wailsjs/go/service/SchemaEditService'
-import type { config, driver, service } from '../../wailsjs/go/models'
+import type { config, driver, service, history } from '../../wailsjs/go/models'
 
 export type Profile = config.ConnectionProfile
 export type Table = driver.TableInfo
@@ -20,6 +22,8 @@ export type TableStructure = service.TableStructure
 export type SchemaOp = service.SchemaOp
 export type SchemaPlan = service.SchemaPlan
 export type ColumnDef = service.ColumnDef
+export type HistoryEntry = history.Entry
+export type SavedQuery = history.Saved
 export type ForeignKey = driver.ForeignKeyInfo
 
 export const emptyProfile = (): Profile =>
@@ -49,6 +53,14 @@ export const api = {
   tablePage: Data.Page,
   tableCount: Data.Count,
   applyChanges: Data.Apply,
+  historyList: list(History.List),
+  historyDelete: History.Delete,
+  historyClear: History.Clear,
+  savedList: list(SavedQ.List),
+  savedSave: SavedQ.Save,
+  savedDelete: SavedQ.Delete,
+  openSqlFile: Dialogs.OpenSQLFile,
+  saveSqlFile: Dialogs.SaveSQLFile,
   pickSQLiteFile: Dialogs.PickSQLiteFile,
   createSQLiteFile: Dialogs.CreateSQLiteFile,
 }

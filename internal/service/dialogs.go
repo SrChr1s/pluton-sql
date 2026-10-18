@@ -56,3 +56,36 @@ func (d *DialogService) CreateSQLiteFile() (string, error) {
 	}
 	return path, err
 }
+
+var sqlFilters = []runtime.FileFilter{
+	{DisplayName: "Scripts SQL (*.sql, *.txt)", Pattern: "*.sql;*.txt"},
+	{DisplayName: "Todos los archivos (*)", Pattern: "*"},
+}
+
+// OpenSQLFile deja elegir un script y devuelve su contenido. Devuelve nil si se cancela.
+func (d *DialogService) OpenSQLFile() (*SQLFile, error) {
+	if d.ctx == nil {
+		return nil, errors.New("diálogos no disponibles")
+	}
+	path, err := runtime.OpenFileDialog(d.ctx, runtime.OpenDialogOptions{Title: "Abrir script SQL", Filters: sqlFilters})
+	if err != nil || path == "" {
+		return nil, err
+	}
+	return ReadSQLFile(path)
+}
+
+// SaveSQLFile guarda el script en path; si path está vacío pregunta dónde (Guardar como).
+// Devuelve la ruta usada, o "" si se canceló.
+func (d *DialogService) SaveSQLFile(path, content string, crlf bool) (string, error) {
+	if path == "" {
+		if d.ctx == nil {
+			return "", errors.New("diálogos no disponibles")
+		}
+		p, err := runtime.SaveFileDialog(d.ctx, runtime.SaveDialogOptions{Title: "Guardar script SQL", DefaultFilename: "consulta.sql", Filters: sqlFilters})
+		if err != nil || p == "" {
+			return "", err
+		}
+		path = p
+	}
+	return path, WriteSQLFile(path, content, crlf)
+}

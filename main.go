@@ -44,6 +44,8 @@ func main() {
 			app.Data,
 			app.Structure,
 			app.SchemaEdit,
+			app.History,
+			app.Saved,
 			app.Dialogs,
 		},
 	})

@@ -34,14 +34,23 @@ type Store struct {
 	path string
 }
 
+// Dir devuelve el directorio de configuración de la aplicación (os.UserConfigDir()/pluton-sql).
+func Dir() (string, error) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "pluton-sql"), nil
+}
+
 // NewStore crea un Store en path. Si path está vacío usa os.UserConfigDir()/pluton-sql/connections.json.
 func NewStore(path string) (*Store, error) {
 	if path == "" {
-		dir, err := os.UserConfigDir()
+		dir, err := Dir()
 		if err != nil {
 			return nil, err
 		}
-		path = filepath.Join(dir, "pluton-sql", "connections.json")
+		path = filepath.Join(dir, "connections.json")
 	}
 	return &Store{path: path}, nil
 }
