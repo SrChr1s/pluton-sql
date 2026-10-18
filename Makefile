@@ -5,7 +5,7 @@ GOFLAGS_OVERLAY := -overlay=$(OVERLAY)
 WAILS ?= wails
 TAGS ?= webkit2_41
 
-.PHONY: overlay build build-windows dev test
+.PHONY: overlay build build-windows dev test test-integration
 
 overlay:
 	go run ./tools/tlsoverlay
@@ -21,3 +21,8 @@ dev: overlay
 
 test: overlay
 	PLUTON_EXPECT_NOSPLIT=1 GOFLAGS=$(GOFLAGS_OVERLAY) go test ./internal/...
+
+# Levanta PostgreSQL y MariaDB en Docker (puertos 15432 y 13306) y ejecuta los tests de integración.
+test-integration:
+	docker compose up -d --wait
+	go test -tags integration ./internal/...

@@ -1,0 +1,16 @@
+# Bases de prueba para los tests de integración (go test -tags integration).
+# Puertos altos para no chocar con servidores locales.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: pluton, POSTGRES_PASSWORD: pluton, POSTGRES_DB: pluton }
+    ports: ["15432:5432"]
+    volumes: ["./testdata/integration/postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro"]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U pluton -d pluton"], interval: 2s, timeout: 3s, retries: 30 }
+
+  mariadb:
+    image: mariadb:11
+    environment: { MARIADB_ROOT_PASSWORD: pluton, MARIADB_DATABASE: pluton, MARIADB_USER: pluton, MARIADB_PASSWORD: pluton }
+    ports: ["13306:3306"]
+    volumes: ["./testdata/integration/mysql.sql:/docker-entrypoint-initdb.d/init.sql:ro"]
+    healthcheck: { test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"], interval: 2s, timeout: 3s, retries: 30 }

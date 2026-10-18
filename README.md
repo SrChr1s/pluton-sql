@@ -103,10 +103,13 @@ En el formulario de conexión, el selector **Versión mínima de TLS** permite n
 
 ```bash
 make test                       # tests del backend (con el parche TLS)
+make test-integration           # además, contra PostgreSQL y MariaDB reales (requiere Docker)
 cd frontend && npm run check    # comprobación de tipos del frontend
 ```
 
 Si cambias los métodos expuestos en `internal/service`, los bindings de `frontend/wailsjs/` se regeneran con `wails generate module -tags webkit2_41` (también lo hace `make build`).
+
+Los tests de integración usan `docker-compose.yml` (PostgreSQL 16 y MariaDB 11 en los puertos 15432 y 13306, con datos de `testdata/integration/`). Al terminar: `docker compose down`.
 
 ### Estructura
 
