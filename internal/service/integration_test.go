@@ -5,7 +5,10 @@ package service
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -480,5 +483,124 @@ func TestIntegrationSchemaEditAtomicPostgres(t *testing.T) {
 	st, _ := NewStructureService(pools).Describe(ref)
 	if st.Columns[0].Type != "character varying(10)" {
 		t.Errorf("el cambio de tipo no se revirtió: %q", st.Columns[0].Type)
+	}
+}
+
+// Exportar y volver a importar contra motores reales: los datos deben quedar idénticos.
+func TestIntegrationExportImportRoundtrip(t *testing.T) {
+	cases := []struct {
+		name, schema string
+		p            config.ConnectionProfile
+		ddl          string
+	}{
+		{"postgres", "public", config.ConnectionProfile{Driver: "postgres", Host: "127.0.0.1", Port: 15432, User: "pluton", Database: "pluton", SSLMode: "disable"},
+			`CREATE TABLE xt (id int PRIMARY KEY, nombre varchar(50) NOT NULL, saldo numeric(10,2), activo boolean, alta timestamp, nota text)`},
+		{"mysql", "", config.ConnectionProfile{Driver: "mysql", Host: "127.0.0.1", Port: 13306, User: "pluton", Database: "pluton"},
+			`CREATE TABLE xt (id INT PRIMARY KEY, nombre VARCHAR(50) NOT NULL, saldo DECIMAL(10,2), activo TINYINT(1), alta DATETIME, nota TEXT)`},
+		{"mssql", "dbo", config.ConnectionProfile{Driver: "mssql", Host: "127.0.0.1", Port: 11433, User: "sa", Database: "master"},
+			`CREATE TABLE xt (id INT PRIMARY KEY, nombre NVARCHAR(50) NOT NULL, saldo DECIMAL(10,2), activo BIT, alta DATETIME2, nota NVARCHAR(MAX))`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+			db, d := openOrSkip(t, ctx, tc.name, tc.p)
+			defer db.Close()
+			db.Exec(`DROP TABLE IF EXISTS xt`)
+			defer db.Exec(`DROP TABLE IF EXISTS xt`)
+			if _, err := db.Exec(tc.ddl); err != nil {
+				t.Fatal(err)
+			}
+			pools := fakePools{db, d}
+			ref := TableRef{Profile: "p", Schema: tc.schema, Table: "xt"}
+			data := NewDataService(pools)
+			ev := &Events{}
+			exp, imp := NewExportService(pools, ev), NewImportService(pools, ev)
+			dir := t.TempDir()
+
+			// Valores difíciles: comillas, barra invertida, saltos de línea, Unicode, NULL y vacío.
+			nombres := []string{"O'Brien", `a\b`, "línea1\nlínea2", "ñandú 日本語", "con \"comillas\", y coma", "último"}
+			var ch []Change
+			for i, n := range nombres {
+				v := map[string]any{"id": fmt.Sprint(i + 1), "nombre": n, "saldo": fmt.Sprintf("%d.50", i*7), "activo": fmt.Sprint(i % 2), "alta": "2026-01-02 03:04:05", "nota": n}
+				if i == 3 {
+					delete(v, "saldo")
+					delete(v, "nota") // NULL
+				}
+				ch = append(ch, Change{Kind: "insert", Values: v})
+			}
+			if _, err := data.Apply(ref, ch); err != nil {
+				t.Fatalf("preparar datos: %v", err)
+			}
+			snapshot := func() [][]any {
+				p, err := data.Page(PageRequest{Table: ref, OrderBy: "id", Limit: 100})
+				if err != nil {
+					t.Fatal(err)
+				}
+				return p.Rows
+			}
+			before := snapshot()
+			if len(before) != len(nombres) {
+				t.Fatalf("filas preparadas: %d", len(before))
+			}
+			wipe := func() {
+				if _, err := db.Exec(`DELETE FROM xt`); err != nil {
+					t.Fatal(err)
+				}
+			}
+			req := func(format string) ExportRequest {
+				return ExportRequest{Profile: "p", Kind: "table", Schema: tc.schema, Table: "xt", Format: format, Header: true, Path: filepath.Join(dir, "xt."+format)}
+			}
+
+			// --- JSON: válido y con todas las filas
+			if res, err := exp.Run("j", req("json")); err != nil || res.Rows != int64(len(nombres)) {
+				t.Fatalf("json: %v %+v", err, res)
+			}
+			var objs []map[string]any
+			raw, _ := os.ReadFile(req("json").Path)
+			if err := json.Unmarshal(raw, &objs); err != nil || len(objs) != len(nombres) || objs[0]["nombre"] != "O'Brien" {
+				t.Errorf("JSON: %v", err)
+			}
+
+			// --- SQL: vaciar y recuperar ejecutando el script exportado
+			if _, err := exp.Run("s", req("sql")); err != nil {
+				t.Fatalf("sql: %v", err)
+			}
+			script, _ := os.ReadFile(req("sql").Path)
+			wipe()
+			stmts := strings.Split(string(script), ";\nINSERT INTO ") // las sentencias empiezan siempre por INSERT INTO
+			for i, st := range stmts {
+				if i > 0 {
+					st = "INSERT INTO " + st
+				}
+				if _, err := db.ExecContext(ctx, strings.TrimSuffix(strings.TrimSpace(st), ";")); err != nil {
+					t.Fatalf("el SQL exportado no se puede ejecutar: %v\n%s", err, st)
+				}
+			}
+			if after := snapshot(); !reflect.DeepEqual(before, after) {
+				t.Errorf("datos distintos tras recuperar desde el SQL:\nantes   %v\ndespués %v", before, after)
+			}
+
+			// --- CSV: vaciar y recuperar con la importación
+			if res, err := exp.Run("c", req("csv")); err != nil || res.Rows != int64(len(nombres)) {
+				t.Fatalf("csv: %v %+v", err, res)
+			}
+			wipe()
+			mapping := []ImportMap{{"id", 0}, {"nombre", 1}, {"saldo", 2}, {"activo", 3}, {"alta", 4}, {"nota", 5}}
+			res, err := imp.Run("i", ImportRequest{Table: ref, Path: req("csv").Path, HasHeader: true, Mapping: mapping})
+			if err != nil || res.Inserted != int64(len(nombres)) {
+				t.Fatalf("importar el CSV exportado: %v %+v", err, res)
+			}
+			after := snapshot()
+			// La importación convierte "" en NULL en columnas no textuales; la nota NULL exportada como vacío
+			// vuelve como '' (columna de texto): es la única diferencia admisible.
+			for i := range before {
+				for j := range before[i] {
+					if !reflect.DeepEqual(before[i][j], after[i][j]) && !(before[i][j] == nil && after[i][j] == "") {
+						t.Errorf("fila %d col %d: antes %#v, después %#v", i, j, before[i][j], after[i][j])
+					}
+				}
+			}
+		})
 	}
 }

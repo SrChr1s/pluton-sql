@@ -3,6 +3,7 @@
   import { ws, type DataTab } from '../lib/workspace.svelte'
   import { isReadonlyType } from '../lib/table.svelte'
   import { copyText } from '../lib/clipboard'
+  import { ui } from '../lib/ui.svelte'
   import StructureView from './StructureView.svelte'
 
   let { tab }: { tab: DataTab } = $props()
@@ -104,6 +105,15 @@
     ].filter(Boolean).join(' · '),
   )
 
+  async function importCsv() {
+    if (!t.page || !(await t.canDiscard('importas datos'))) return
+    ui.importing = {
+      loc: t.loc,
+      columns: t.columns.map((c) => ({ name: c.name, type: c.type, primaryKey: c.primaryKey, autoIncrement: c.autoIncrement })),
+      onDone: () => { t.total = null; void t.load() },
+    }
+  }
+
   function addRow() {
     t.addDraft()
     // Con clave primaria suele ser autogenerada: se empieza por la primera columna que no sea clave.
@@ -149,6 +159,13 @@
     {#if t.pending > 0}
       <button onclick={() => t.discard()}><Icon name="undo" size={13} /> Descartar</button>
       <button class="primary" onclick={() => t.apply()} disabled={t.loading} title="Aplicar en una transacción (Ctrl+S)"><Icon name="check" size={13} /> Aplicar ({t.pending})</button>
+    {/if}
+    <button class="ghost" title="Exportar la tabla (todas las filas, con el filtro y el orden actuales)" disabled={!t.page}
+            onclick={() => (ui.exporting = { kind: 'table', profile: t.loc.profile, database: t.loc.database, schema: t.loc.schema, table: t.loc.table, filter: t.filter, orderBy: t.orderBy, desc: t.desc, name: t.loc.table })}>
+      <Icon name="download" size={14} /> Exportar
+    </button>
+    {#if t.canInsert}
+      <button class="ghost" title="Importar un CSV en esta tabla" disabled={!t.page} onclick={importCsv}><Icon name="upload" size={14} /> Importar</button>
     {/if}
     <button class="ghost" title="Abrir como consulta SQL" onclick={() => ws.openTableAsSql(t.loc.database, t.loc.schema, t.loc.table)}><Icon name="sql" size={14} /> SQL</button>
   </div>

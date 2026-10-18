@@ -22,6 +22,9 @@ type App struct {
 	SchemaEdit  *service.SchemaEditService
 	History     *service.HistoryService
 	Saved       *service.SavedQueryService
+	Export      *service.ExportService
+	Import      *service.ImportService
+	events      *service.Events
 	Dialogs     *service.DialogService
 }
 
@@ -36,7 +39,11 @@ func NewApp() (*App, error) {
 	}
 	histStore := history.NewStore(filepath.Join(dir, "history.json"))
 	sess := session.NewManager(store)
+	events := &service.Events{}
 	return &App{
+		events:      events,
+		Export:      service.NewExportService(sess, events),
+		Import:      service.NewImportService(sess, events),
 		sess:        sess,
 		Connections: service.NewConnectionService(store, sess, func(id string) { _ = histStore.Clear(id) }),
 		Schema:      service.NewSchemaService(sess),
@@ -53,6 +60,7 @@ func NewApp() (*App, error) {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.Dialogs.SetContext(ctx)
+	a.events.SetContext(ctx)
 }
 
 func (a *App) shutdown(context.Context) { a.sess.CloseAll() }

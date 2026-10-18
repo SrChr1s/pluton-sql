@@ -4,12 +4,21 @@ import type { TableLocation } from './table.svelte'
 /** Diálogos propios: los confirm()/alert() nativos no son fiables en el webview. */
 export type ConfirmOptions = { title: string; message?: string; confirmLabel?: string; danger?: boolean }
 
+/** Qué se exporta: el resultado de una consulta, o una tabla con su filtro y orden actuales. */
+export type ExportSource =
+  | { kind: 'query'; profile: string; database: string; sql: string; name: string }
+  | { kind: 'table'; profile: string; database: string; schema: string; table: string; filter: string; orderBy: string; desc: boolean; name: string }
+
+export type ImportTarget = { loc: TableLocation; columns: { name: string; type: string; primaryKey: boolean; autoIncrement: boolean }[]; onDone: () => void }
+
 export type SchemaDialog = { loc: TableLocation; kind: string; target: string; structure: TableStructure | null }
 
 export type Toast = { id: number; msg: string; kind: 'ok' | 'err' }
 export type PromptOptions = { title: string; label: string; value?: string; confirmLabel?: string }
 
 class UI {
+  exporting = $state<ExportSource | null>(null)
+  importing = $state<ImportTarget | null>(null)
   toasts = $state<Toast[]>([])
   prompting = $state<(PromptOptions & { resolve: (v: string | null) => void }) | null>(null)
   private toastSeq = 0

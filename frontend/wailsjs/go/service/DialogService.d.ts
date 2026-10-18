@@ -3,6 +3,10 @@
 import {service} from '../models';
 import {context} from '../models';
 
+export function ChooseCSVFile():Promise<string>;
+
+export function ChooseExportFile(arg1:string,arg2:string):Promise<string>;
+
 export function CreateSQLiteFile():Promise<string>;
 
 export function OpenSQLFile():Promise<service.SQLFile>;

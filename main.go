@@ -46,6 +46,8 @@ func main() {
 			app.SchemaEdit,
 			app.History,
 			app.Saved,
+			app.Export,
+			app.Import,
 			app.Dialogs,
 		},
 	})

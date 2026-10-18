@@ -267,6 +267,66 @@ export namespace service {
 	        this.autoIncrement = source["autoIncrement"];
 	    }
 	}
+	export class ExportRequest {
+	    profile: string;
+	    database: string;
+	    kind: string;
+	    sql: string;
+	    schema: string;
+	    table: string;
+	    filter: string;
+	    orderBy: string;
+	    desc: boolean;
+	    format: string;
+	    path: string;
+	    delimiter: string;
+	    header: boolean;
+	    bom: boolean;
+	    sqlTable: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.profile = source["profile"];
+	        this.database = source["database"];
+	        this.kind = source["kind"];
+	        this.sql = source["sql"];
+	        this.schema = source["schema"];
+	        this.table = source["table"];
+	        this.filter = source["filter"];
+	        this.orderBy = source["orderBy"];
+	        this.desc = source["desc"];
+	        this.format = source["format"];
+	        this.path = source["path"];
+	        this.delimiter = source["delimiter"];
+	        this.header = source["header"];
+	        this.bom = source["bom"];
+	        this.sqlTable = source["sqlTable"];
+	    }
+	}
+	export class ExportResult {
+	    path: string;
+	    rows: number;
+	    bytes: number;
+	    durationMs: number;
+	    cancelled: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.rows = source["rows"];
+	        this.bytes = source["bytes"];
+	        this.durationMs = source["durationMs"];
+	        this.cancelled = source["cancelled"];
+	    }
+	}
 	export class FKDef {
 	    name: string;
 	    columns: string[];
@@ -291,20 +351,18 @@ export namespace service {
 	        this.onUpdate = source["onUpdate"];
 	    }
 	}
-	export class IndexDef {
-	    name: string;
-	    columns: string[];
-	    unique: boolean;
+	export class ImportMap {
+	    column: string;
+	    source: number;
 	
 	    static createFrom(source: any = {}) {
-	        return new IndexDef(source);
+	        return new ImportMap(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.columns = source["columns"];
-	        this.unique = source["unique"];
+	        this.column = source["column"];
+	        this.source = source["source"];
 	    }
 	}
 	export class TableRef {
@@ -323,6 +381,78 @@ export namespace service {
 	        this.database = source["database"];
 	        this.schema = source["schema"];
 	        this.table = source["table"];
+	    }
+	}
+	export class ImportRequest {
+	    table: TableRef;
+	    path: string;
+	    delimiter: string;
+	    hasHeader: boolean;
+	    mapping: ImportMap[];
+	    emptyAsNull: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.table = this.convertValues(source["table"], TableRef);
+	        this.path = source["path"];
+	        this.delimiter = source["delimiter"];
+	        this.hasHeader = source["hasHeader"];
+	        this.mapping = this.convertValues(source["mapping"], ImportMap);
+	        this.emptyAsNull = source["emptyAsNull"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ImportResult {
+	    inserted: number;
+	    durationMs: number;
+	    cancelled: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.inserted = source["inserted"];
+	        this.durationMs = source["durationMs"];
+	        this.cancelled = source["cancelled"];
+	    }
+	}
+	export class IndexDef {
+	    name: string;
+	    columns: string[];
+	    unique: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new IndexDef(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.columns = source["columns"];
+	        this.unique = source["unique"];
 	    }
 	}
 	export class PageRequest {
@@ -547,6 +677,31 @@ export namespace service {
 		    }
 		    return a;
 		}
+	}
+
+}
+
+export namespace transfer {
+	
+	export class Preview {
+	    delimiter: string;
+	    header: string[];
+	    rows: string[][];
+	    columns: number;
+	    warnings: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Preview(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.delimiter = source["delimiter"];
+	        this.header = source["header"];
+	        this.rows = source["rows"];
+	        this.columns = source["columns"];
+	        this.warnings = source["warnings"];
+	    }
 	}
 
 }

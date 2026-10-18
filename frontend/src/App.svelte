@@ -10,6 +10,8 @@
   import ConfirmDialog from './components/ConfirmDialog.svelte'
   import SchemaChangeDialog from './components/SchemaChangeDialog.svelte'
   import HistoryPanel from './components/HistoryPanel.svelte'
+  import ExportDialog from './components/ExportDialog.svelte'
+  import ImportDialog from './components/ImportDialog.svelte'
   import PromptDialog from './components/PromptDialog.svelte'
   import Toasts from './components/Toasts.svelte'
   import { ui } from './lib/ui.svelte'
@@ -89,6 +91,10 @@
             <Icon name="play" size={12} /> Ejecutar
           </button>
           <button onclick={() => ws.cancel()} disabled={!q.running}><Icon name="stop" size={12} /> Cancelar</button>
+          <button class="ghost" title="Exportar el resultado visible a CSV, JSON o INSERT (se vuelve a ejecutar y se exportan todas las filas)" disabled={!q.result?.isQuery}
+                  onclick={() => ui.exporting = { kind: 'query', profile: ws.active!.id, database: q.database, sql: q.lastSql || q.sql, name: q.title.replace(/\.sql$/i, '') }}>
+            <Icon name="download" size={14} /> Exportar
+          </button>
           <span class="sep"></span>
           <button class="ghost" title="Abrir un script .sql (Ctrl+O)" onclick={() => ws.openFile()}><Icon name="folder" size={14} /> Abrir</button>
           <button class="ghost" title={q.filePath ? `Guardar en ${q.filePath} (Ctrl+S)` : 'Guardar como archivo .sql (Ctrl+S)'} onclick={() => ws.saveFile(q)}><Icon name="save" size={14} /> Guardar</button>
@@ -136,6 +142,8 @@
       ondone={(loc, op) => { ui.schema = null; void ws.schemaChanged(loc, op) }} />
   {/key}
 {/if}
+{#if ui.exporting}{#key ui.exporting}<ExportDialog source={ui.exporting} oncancel={() => (ui.exporting = null)} />{/key}{/if}
+{#if ui.importing}{#key ui.importing}<ImportDialog target={ui.importing} oncancel={() => (ui.importing = null)} />{/key}{/if}
 <ConfirmDialog />
 <PromptDialog />
 <Toasts />

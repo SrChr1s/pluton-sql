@@ -90,7 +90,11 @@ make dev
 8. En una pestaña de consulta, escribe SQL y pulsa **Ctrl+Enter** (o **▶ Ejecutar**) para ejecutar la selección, o todo el texto si no hay selección. **■ Cancelar** interrumpe una consulta en curso.
 9. **Archivos .sql:** **Abrir** (`Ctrl+O`) carga un script en una pestaña nueva y **Guardar** (`Ctrl+S`) lo escribe en su archivo; **Guardar como…** (`Ctrl+Shift+S`) elige otro destino. La pestaña muestra un punto si tiene cambios sin guardar y pide confirmación al cerrarla. Se conserva el fin de línea del archivo (CRLF o LF) y la escritura es atómica. Solo se abren archivos de texto UTF-8 de hasta 10 MB.
 10. **Historial y consultas guardadas** (`Ctrl+H`): cada ejecución de la conexión queda registrada con su duración, filas y error si lo hubo; las ejecuciones consecutivas idénticas se agrupan (`×3`). Haz clic en una entrada para abrirla en una pestaña nueva, o guárdala con un nombre en *Guardadas* (sirven para cualquier conexión).
-11. Edita una conexión con **✎** o doble clic, y elimínala con **✕**.
+11. **Exportar:** el botón *Exportar* de una consulta o de una tabla genera **CSV**, **JSON** o **INSERT**. Se vuelve a ejecutar la consulta en el servidor y se exportan **todas** las filas (no solo las 1000 de la vista), escribiendo en streaming; el destino solo se reemplaza si la exportación termina entera, y cancelar no deja archivos a medias. En una tabla se respetan el filtro y el orden actuales. El CSV puede usar `;`, tabulador o `|` y un BOM para que Excel lea bien los acentos.
+12. **Importar CSV:** el botón *Importar* de una tabla abre un asistente con vista previa, detección del separador y mapeo de columnas (por nombre o por posición). Todo va en **una transacción**: si falla una fila, se indica cuál y no se inserta ninguna; cancelar también lo revierte. En columnas que no son de texto el valor vacío se importa como `NULL`.
+    - Los valores binarios se exportan como texto si son UTF-8 válido y en hexadecimal si no.
+    - Un CSV abierto en una hoja de cálculo puede interpretar como fórmula una celda que empiece por `=`, `+`, `-` o `@`: no abras con Excel archivos exportados de datos que no controlas.
+13. Edita una conexión con **✎** o doble clic, y elimínala con **✕**.
 
 Los resultados de una consulta se limitan a 1000 filas; la barra inferior avisa si se truncaron.
 

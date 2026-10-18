@@ -89,3 +89,35 @@ func (d *DialogService) SaveSQLFile(path, content string, crlf bool) (string, er
 	}
 	return path, WriteSQLFile(path, content, crlf)
 }
+
+var exportFilters = map[string]runtime.FileFilter{
+	"csv":  {DisplayName: "CSV (*.csv)", Pattern: "*.csv"},
+	"json": {DisplayName: "JSON (*.json)", Pattern: "*.json"},
+	"sql":  {DisplayName: "Script SQL (*.sql)", Pattern: "*.sql"},
+}
+
+// ChooseExportFile pregunta dónde guardar una exportación. Devuelve "" si se cancela.
+func (d *DialogService) ChooseExportFile(defaultName, format string) (string, error) {
+	if d.ctx == nil {
+		return "", errors.New("diálogos no disponibles")
+	}
+	opts := runtime.SaveDialogOptions{Title: "Exportar", DefaultFilename: defaultName}
+	if f, ok := exportFilters[format]; ok {
+		opts.Filters = []runtime.FileFilter{f}
+	}
+	return runtime.SaveFileDialog(d.ctx, opts)
+}
+
+// ChooseCSVFile pregunta qué archivo CSV importar. Devuelve "" si se cancela.
+func (d *DialogService) ChooseCSVFile() (string, error) {
+	if d.ctx == nil {
+		return "", errors.New("diálogos no disponibles")
+	}
+	return runtime.OpenFileDialog(d.ctx, runtime.OpenDialogOptions{
+		Title: "Importar CSV",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "CSV y texto (*.csv, *.tsv, *.txt)", Pattern: "*.csv;*.tsv;*.txt"},
+			{DisplayName: "Todos los archivos (*)", Pattern: "*"},
+		},
+	})
+}

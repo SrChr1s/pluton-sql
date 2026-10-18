@@ -16,6 +16,8 @@ export type QueryTab = {
   filePath: string
   savedSql: string
   crlf: boolean
+  /** La consulta que produjo el resultado visible (lo que se exporta). */
+  lastSql: string
 }
 
 /** Pestaña con los datos de una tabla, editables. */
@@ -103,7 +105,7 @@ class Workspace {
       sql: opts.sql ?? '',
       database: opts.database ?? this.tab?.database ?? '',
       result: null, error: '', running: false, queryId: '',
-      filePath: '', savedSql: '', crlf: false,
+      filePath: '', savedSql: '', crlf: false, lastSql: '',
     })
   }
 
@@ -164,6 +166,7 @@ class Workspace {
     t.queryId = crypto.randomUUID()
     try {
       t.result = await api.execute(t.queryId, p.id, t.database, q)
+      t.lastSql = q
     } catch (e) {
       t.error = errMsg(e)
       t.result = null
@@ -286,7 +289,7 @@ class Workspace {
       return raw.map((r): QueryTab => ({
         kind: 'query', id: crypto.randomUUID(), title: r.title, sql: r.sql, database: r.database ?? '',
         result: null, error: '', running: false, queryId: '',
-        filePath: r.filePath ?? '', savedSql: r.savedSql ?? '', crlf: r.crlf ?? false,
+        filePath: r.filePath ?? '', savedSql: r.savedSql ?? '', crlf: r.crlf ?? false, lastSql: '',
       }))
     } catch {
       return []
