@@ -1,6 +1,8 @@
 import { api, errMsg, type Profile, type QueryResult } from './api'
+import { TableState } from './table.svelte'
 
 export type QueryTab = {
+  kind: 'query'
   id: string
   title: string
   sql: string
@@ -10,6 +12,11 @@ export type QueryTab = {
   running: boolean
   queryId: string
 }
+
+/** Pestaña con los datos de una tabla, editables. */
+export type DataTab = { kind: 'table'; id: string; title: string; database: string; state: TableState }
+
+export type Tab = QueryTab | DataTab
 
 const STORE = 'pluton.tabs.'
 
@@ -28,17 +35,29 @@ export function selectFrom(driver: string, schema: string, table: string, limit 
 class Workspace {
   profiles = $state<Profile[]>([])
   active = $state<Profile | null>(null)
-  private tabsByProfile = $state<Record<string, QueryTab[]>>({})
+  private tabsByProfile = $state<Record<string, Tab[]>>({})
   private currentTab = $state<Record<string, string>>({})
   private counter = 0
 
-  get tabs(): QueryTab[] {
+  get tabs(): Tab[] {
     return this.active ? (this.tabsByProfile[this.active.id] ?? []) : []
   }
 
-  get tab(): QueryTab | null {
+  get tab(): Tab | null {
     const id = this.active ? this.currentTab[this.active.id] : ''
     return this.tabs.find((t) => t.id === id) ?? null
+  }
+
+  /** La pestaña actual si es de consulta (si no, null). */
+  get queryTab(): QueryTab | null {
+    const t = this.tab
+    return t?.kind === 'query' ? t : null
+  }
+
+  /** La pestaña actual si es de datos (si no, null). */
+  get dataTab(): DataTab | null {
+    const t = this.tab
+    return t?.kind === 'table' ? t : null
   }
 
   async loadProfiles() {
@@ -58,35 +77,41 @@ class Workspace {
     this.active = null
   }
 
+  private add<T extends Tab>(tab: T): T {
+    const p = this.active!
+    this.tabsByProfile[p.id] = [...(this.tabsByProfile[p.id] ?? []), tab]
+    this.currentTab[p.id] = tab.id
+    // devuelve el proxy reactivo, no el objeto original
+    return this.tabsByProfile[p.id].find((x) => x.id === tab.id) as T
+  }
+
   newTab(opts: Partial<Pick<QueryTab, 'title' | 'sql' | 'database'>> = {}): QueryTab | null {
-    const p = this.active
-    if (!p) return null
-    const t: QueryTab = {
+    if (!this.active) return null
+    return this.add<QueryTab>({
+      kind: 'query',
       id: crypto.randomUUID(),
       title: opts.title ?? `Consulta ${++this.counter}`,
       sql: opts.sql ?? '',
       database: opts.database ?? this.tab?.database ?? '',
       result: null, error: '', running: false, queryId: '',
-    }
-    this.tabsByProfile[p.id] = [...(this.tabsByProfile[p.id] ?? []), t]
-    this.currentTab[p.id] = t.id
-    // devuelve el proxy reactivo, no el objeto original
-    return this.tabsByProfile[p.id].find((x) => x.id === t.id) ?? null
+    })
   }
 
   select(id: string) {
     if (this.active) this.currentTab[this.active.id] = id
   }
 
-  /** Cierra una pestaña; siempre queda al menos una. */
-  close(id: string) {
+  /** Cierra una pestaña (pide confirmación si hay cambios sin aplicar); siempre queda al menos una. */
+  async close(id: string) {
     const p = this.active
     if (!p) return
     const tabs = this.tabsByProfile[p.id]
     const i = tabs.findIndex((t) => t.id === id)
     if (i < 0) return
-    if (tabs[i].running) api.cancel(tabs[i].queryId)
-    const rest = tabs.filter((t) => t.id !== id)
+    const t = tabs[i]
+    if (t.kind === 'table' && !(await t.state.canDiscard('cierras la pestaña'))) return
+    if (t.kind === 'query' && t.running) api.cancel(t.queryId)
+    const rest = this.tabsByProfile[p.id].filter((x) => x.id !== id)
     this.tabsByProfile[p.id] = rest
     if (rest.length === 0) this.newTab()
     else if (this.currentTab[p.id] === id) this.currentTab[p.id] = rest[Math.min(i, rest.length - 1)].id
@@ -106,7 +131,7 @@ class Workspace {
   }
 
   async run(text?: string) {
-    const t = this.tab
+    const t = this.queryTab
     const p = this.active
     if (!t || !p || t.running) return
     const q = text ?? t.sql
@@ -124,11 +149,25 @@ class Workspace {
   }
 
   cancel() {
-    const t = this.tab
+    const t = this.queryTab
     if (t?.running) api.cancel(t.queryId)
   }
 
+  /** Abre los datos de una tabla en una pestaña editable (reutiliza la pestaña si ya está abierta). */
   openTable(database: string, schema: string, table: string) {
+    const p = this.active
+    if (!p) return
+    const open = this.tabs.find(
+      (t): t is DataTab => t.kind === 'table' && t.state.loc.database === database && t.state.loc.schema === schema && t.state.loc.table === table,
+    )
+    if (open) return this.select(open.id)
+    const state = new TableState({ profile: p.id, database, schema, table })
+    const tab = this.add<DataTab>({ kind: 'table', id: crypto.randomUUID(), title: table, database, state })
+    tab.state.load()
+  }
+
+  /** Abre un SELECT de la tabla en una pestaña de consulta. */
+  openTableAsSql(database: string, schema: string, table: string) {
     const p = this.active
     if (!p) return
     const t = this.newTab({ title: table, database, sql: selectFrom(p.driver, schema, table) })
@@ -136,28 +175,31 @@ class Workspace {
   }
 
   setDatabase(database: string) {
-    if (this.tab) this.tab.database = database
+    if (this.queryTab) this.queryTab.database = database
   }
 
   /** Cambia cuando cambia cualquier borrador; sirve para disparar el guardado. */
   get signature(): string {
-    return JSON.stringify(Object.entries(this.tabsByProfile).map(([id, ts]) => [id, ts.map((t) => [t.title, t.sql, t.database])]))
+    return JSON.stringify(
+      Object.entries(this.tabsByProfile).map(([id, ts]) => [id, ts.filter((t) => t.kind === 'query').map((t) => [t.title, t.sql, t.database])]),
+    )
   }
 
-  // --- persistencia local de borradores (solo SQL y título) ---
+  // --- persistencia local de borradores (solo pestañas de consulta: SQL y título) ---
   persist() {
     for (const [id, tabs] of Object.entries(this.tabsByProfile)) {
       try {
-        localStorage.setItem(STORE + id, JSON.stringify(tabs.map((t) => ({ title: t.title, sql: t.sql, database: t.database }))))
+        const qs = tabs.filter((t): t is QueryTab => t.kind === 'query')
+        localStorage.setItem(STORE + id, JSON.stringify(qs.map((t) => ({ title: t.title, sql: t.sql, database: t.database }))))
       } catch { /* sin almacenamiento: se pierde el borrador, nada más */ }
     }
   }
 
-  private restore(profileId: string): QueryTab[] {
+  private restore(profileId: string): Tab[] {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE + profileId) ?? '[]') as Pick<QueryTab, 'title' | 'sql' | 'database'>[]
-      return raw.map((r) => ({
-        id: crypto.randomUUID(), title: r.title, sql: r.sql, database: r.database ?? '',
+      return raw.map((r): QueryTab => ({
+        kind: 'query', id: crypto.randomUUID(), title: r.title, sql: r.sql, database: r.database ?? '',
         result: null, error: '', running: false, queryId: '',
       }))
     } catch {

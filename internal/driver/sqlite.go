@@ -137,3 +137,9 @@ func queryColumnNames(ctx context.Context, db *sql.DB, index string) ([]string, 
 	}
 	return out, rows.Err()
 }
+
+func (sqlite) Quote(ident string) string { return quoteWith(`"`, `"`, ident) }
+func (sqlite) Param(n int) string        { return "?" }
+func (sqlite) Paginate(order string, limit, offset int) string {
+	return limitOffset(order, limit, offset)
+}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/SrChr1s/pluton-sql/internal/config"
 )
@@ -45,6 +46,14 @@ type Dialect interface {
 	ListTables(ctx context.Context, db *sql.DB, schema string) ([]TableInfo, error)
 	ListColumns(ctx context.Context, db *sql.DB, schema, table string) ([]ColumnInfo, error)
 	ListIndexes(ctx context.Context, db *sql.DB, schema, table string) ([]IndexInfo, error)
+
+	// Quote cita un identificador (tabla, columna...) escapando las comillas.
+	Quote(ident string) string
+	// Param devuelve el marcador del parámetro n (1-based): $1, ?, @p1.
+	Param(n int) string
+	// Paginate devuelve el sufijo de paginación. order es una cláusula ORDER BY
+	// ya construida o "" si no hay orden.
+	Paginate(order string, limit, offset int) string
 }
 
 // Opener es opcional: un dialecto lo implementa cuando la cadena DSN no basta
@@ -115,4 +124,16 @@ func groupIndexes(rows []indexRow) []IndexInfo {
 		out[i].Columns = append(out[i].Columns, r.column)
 	}
 	return out
+}
+
+func quoteWith(open, close, ident string) string {
+	return open + strings.ReplaceAll(ident, close, close+close) + close
+}
+
+// limitOffset es la paginación estándar de PostgreSQL, MySQL y SQLite.
+func limitOffset(order string, limit, offset int) string {
+	if order != "" {
+		order += " "
+	}
+	return fmt.Sprintf("%sLIMIT %d OFFSET %d", order, limit, offset)
 }

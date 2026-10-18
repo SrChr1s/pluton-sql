@@ -129,3 +129,12 @@ func (mssql) ListIndexes(ctx context.Context, db *sql.DB, schema, table string) 
 	defer rows.Close()
 	return scanIndexes(rows)
 }
+
+func (mssql) Quote(ident string) string { return quoteWith("[", "]", ident) }
+func (mssql) Param(n int) string        { return fmt.Sprintf("@p%d", n) }
+func (mssql) Paginate(order string, limit, offset int) string {
+	if order == "" {
+		order = "ORDER BY (SELECT NULL)" // OFFSET/FETCH exige ORDER BY
+	}
+	return fmt.Sprintf("%s OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", order, offset, limit)
+}

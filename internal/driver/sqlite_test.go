@@ -49,7 +49,7 @@ func TestDSNs(t *testing.T) {
 	p := config.ConnectionProfile{Host: "h", User: "u", Database: "d"}
 	want := map[string]string{
 		"postgres": "postgres://u:p%40ss@h:5432/d?sslmode=prefer",
-		"mysql":    "u:p@ss@tcp(h:3306)/d?parseTime=true",
+		"mysql":    "u:p@ss@tcp(h:3306)/d?clientFoundRows=true&parseTime=true",
 	}
 	for name, w := range want {
 		d, _ := Get(name)

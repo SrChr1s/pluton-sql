@@ -1,15 +1,22 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
   import { ws } from '../lib/workspace.svelte'
+  let { ontoggle }: { ontoggle: () => void } = $props()
 </script>
 
-<div class="tabs" role="tablist" aria-label="Consultas">
+<div class="tabs" role="tablist" aria-label="Pestañas">
+  <button class="ghost icon side" title="Mostrar/ocultar panel lateral (Ctrl+B)" aria-label="Panel lateral" onclick={ontoggle}><Icon name="sidebar" size={16} /></button>
   {#each ws.tabs as t, i (t.id)}
     <div class="tab" class:sel={ws.tab?.id === t.id} role="tab" tabindex="0" aria-selected={ws.tab?.id === t.id}
          onclick={() => ws.select(t.id)} onauxclick={(e) => e.button === 1 && ws.close(t.id)}
          onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && ws.select(t.id)} title="{t.title}{i < 9 ? ` (Alt+${i + 1})` : ''}">
-      <span class="dot" class:running={t.running} class:err={!!t.error}></span>
+      {#if t.kind === 'query'}
+        <span class="dot" class:running={t.running} class:err={!!t.error}></span>
+      {:else}
+        <span class="kind"><Icon name="table" size={13} /></span>
+      {/if}
       <span class="title">{t.title}</span>
+      {#if t.kind === 'table' && t.state.pending > 0}<span class="pend" title="{t.state.pending} cambio(s) sin aplicar"></span>{/if}
       <button class="ghost icon close" aria-label="Cerrar pestaña" onclick={(e) => { e.stopPropagation(); ws.close(t.id) }}>
         <Icon name="x" size={13} />
       </button>
@@ -32,6 +39,9 @@
   .close { opacity: 0; padding: 2px; }
   .tab:hover .close, .tab.sel .close, .close:focus-visible { opacity: 1; }
   .add { margin: 0 0 4px 4px; color: var(--muted); }
+  .side { margin: 0 6px 4px 0; color: var(--muted); }
+  .kind { display: inline-flex; color: var(--muted); }
+  .pend { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
   @keyframes pulse { 50% { opacity: .3; } }
   @media (prefers-reduced-motion: reduce) { .dot.running { animation: none; } }
 </style>

@@ -30,6 +30,9 @@ func (mysqlDialect) DSN(p config.ConnectionProfile, password, database string) s
 	cfg.Addr = fmt.Sprintf("%s:%d", p.Host, port)
 	cfg.DBName = pick(database, p.Database)
 	cfg.ParseTime = true
+	// RowsAffected cuenta filas coincidentes y no solo modificadas: un UPDATE que deja
+	// el mismo valor devolvería 0 y se tomaría por fila no encontrada.
+	cfg.ClientFoundRows = true
 	if v := legacyTLS(p.TLSMinVersion); v != "" {
 		name := "pluton-tls-" + v
 		if err := mysql.RegisterTLSConfig(name, legacyTLSConfig(tlsVersions[v])); err == nil {
@@ -84,4 +87,10 @@ func (mysqlDialect) ListIndexes(ctx context.Context, db *sql.DB, _, table string
 	}
 	defer rows.Close()
 	return scanIndexes(rows)
+}
+
+func (mysqlDialect) Quote(ident string) string { return quoteWith("`", "`", ident) }
+func (mysqlDialect) Param(n int) string        { return "?" }
+func (mysqlDialect) Paginate(order string, limit, offset int) string {
+	return limitOffset(order, limit, offset)
 }

@@ -3,7 +3,8 @@
   import { ws } from '../lib/workspace.svelte'
   import { theme } from '../lib/theme.svelte'
 
-  const r = $derived(ws.tab?.result)
+  const r = $derived(ws.queryTab?.result)
+  const dt = $derived(ws.dataTab?.state)
   const label = $derived({ system: 'Tema: sistema', light: 'Tema: claro', dark: 'Tema: oscuro' }[theme.mode])
   const icon = $derived({ system: 'monitor', light: 'sun', dark: 'moon' }[theme.mode])
 </script>
@@ -18,7 +19,9 @@
     {/if}
   </span>
   <span class="grow"></span>
-  {#if ws.tab?.running}
+  {#if dt}
+    <span>{dt.page ? `${dt.page.rows.length} fila(s)${dt.total !== null ? ` de ${dt.total}` : dt.page.hasMore ? '+' : ''}` : ''}{dt.pending ? ` · ${dt.pending} cambio(s) pendiente(s)` : ''}</span>
+  {:else if ws.queryTab?.running}
     <span>Ejecutando…</span>
   {:else if r}
     <span>{r.isQuery ? `${r.rows.length} fila(s)${r.truncated ? ' (truncado)' : ''}` : `${r.rowsAffected} afectada(s)`} · {r.durationMs} ms</span>

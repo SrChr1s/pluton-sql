@@ -5,6 +5,7 @@
   import StatusBar from './components/StatusBar.svelte'
   import QueryEditor from './components/QueryEditor.svelte'
   import ResultGrid from './components/ResultGrid.svelte'
+  import TableView from './components/TableView.svelte'
   import ConnectionForm from './components/ConnectionForm.svelte'
   import ConfirmDialog from './components/ConfirmDialog.svelte'
   import { ws } from './lib/workspace.svelte'
@@ -37,12 +38,13 @@
     const k = e.key.toLowerCase()
     if (form) return
     if (mod && k === 't') { e.preventDefault(); ws.newTab() }
-    else if (mod && k === 'w') { e.preventDefault(); if (ws.tab) ws.close(ws.tab.id) }
+    else if (mod && k === 'w') { e.preventDefault(); if (ws.tab) void ws.close(ws.tab.id) }
     else if (mod && k === 'b') { e.preventDefault(); sidebarOpen = !sidebarOpen }
     else if (mod && (e.key === 'PageDown' || (e.key === 'Tab' && !e.shiftKey))) { e.preventDefault(); ws.step(1) }
     else if (mod && (e.key === 'PageUp' || (e.key === 'Tab' && e.shiftKey))) { e.preventDefault(); ws.step(-1) }
     else if (e.altKey && /^[1-9]$/.test(e.key)) { e.preventDefault(); ws.selectNth(Number(e.key) - 1) }
-    else if (e.key === 'F5') { e.preventDefault(); ws.run() }
+    else if (e.key === 'F5') { e.preventDefault(); if (ws.dataTab) ws.dataTab.state.reload(); else ws.run() }
+    else if (mod && k === 's') { e.preventDefault(); ws.dataTab?.state.apply() }
     else if (mod && e.key === '.') { e.preventDefault(); ws.cancel() }
   }
 
@@ -71,25 +73,29 @@
 
   <main>
     {#if ws.active && ws.tab}
-      <TabBar />
-      <div class="toolbar">
-        <button class="ghost icon" title="Mostrar/ocultar panel lateral (Ctrl+B)" aria-label="Panel lateral" onclick={() => (sidebarOpen = !sidebarOpen)}><Icon name="sidebar" size={16} /></button>
-        <button class="primary" onclick={() => ws.run()} disabled={ws.tab?.running || !ws.tab?.sql.trim()}>
-          <Icon name="play" size={12} /> Ejecutar
-        </button>
-        <button onclick={() => ws.cancel()} disabled={!ws.tab?.running}><Icon name="stop" size={12} /> Cancelar</button>
-        <span class="grow"></span>
-        <span class="keys"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> ejecuta la selección o todo</span>
-      </div>
-      <div class="work">
-        <div class="editor" style:height="{editorPct}%">
-          {#key ws.tab.id}
-            <QueryEditor bind:value={ws.tab.sql} driver={ws.active.driver} onrun={(q) => ws.run(q)} />
-          {/key}
+      <TabBar ontoggle={() => (sidebarOpen = !sidebarOpen)} />
+      {#if ws.queryTab}
+        {@const q = ws.queryTab}
+        <div class="toolbar">
+          <button class="primary" onclick={() => ws.run()} disabled={q.running || !q.sql.trim()}>
+            <Icon name="play" size={12} /> Ejecutar
+          </button>
+          <button onclick={() => ws.cancel()} disabled={!q.running}><Icon name="stop" size={12} /> Cancelar</button>
+          <span class="grow"></span>
+          <span class="keys"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> ejecuta la selección o todo</span>
         </div>
-        <div class="hsplit" role="separator" aria-orientation="horizontal" aria-label="Redimensionar editor" onpointerdown={(e) => drag(e, 'y')}></div>
-        <div class="results"><ResultGrid result={ws.tab.result} error={ws.tab.error} running={ws.tab.running} /></div>
-      </div>
+        <div class="work">
+          <div class="editor" style:height="{editorPct}%">
+            {#key q.id}
+              <QueryEditor bind:value={q.sql} driver={ws.active.driver} onrun={(text) => ws.run(text)} />
+            {/key}
+          </div>
+          <div class="hsplit" role="separator" aria-orientation="horizontal" aria-label="Redimensionar editor" onpointerdown={(e) => drag(e, 'y')}></div>
+          <div class="results"><ResultGrid result={q.result} error={q.error} running={q.running} /></div>
+        </div>
+      {:else if ws.dataTab}
+        {#key ws.dataTab.id}<TableView tab={ws.dataTab} />{/key}
+      {/if}
     {:else}
       <div class="welcome">
         <Icon name="database" size={40} />

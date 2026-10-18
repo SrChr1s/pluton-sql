@@ -149,3 +149,9 @@ func scanIndexes(rows *sql.Rows) ([]IndexInfo, error) {
 	}
 	return groupIndexes(rs), rows.Err()
 }
+
+func (postgres) Quote(ident string) string { return quoteWith(`"`, `"`, ident) }
+func (postgres) Param(n int) string        { return fmt.Sprintf("$%d", n) }
+func (postgres) Paginate(order string, limit, offset int) string {
+	return limitOffset(order, limit, offset)
+}

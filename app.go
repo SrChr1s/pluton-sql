@@ -15,6 +15,7 @@ type App struct {
 	Connections *service.ConnectionService
 	Schema      *service.SchemaService
 	Query       *service.QueryService
+	Data        *service.DataService
 	Dialogs     *service.DialogService
 }
 
@@ -29,6 +30,7 @@ func NewApp() (*App, error) {
 		Connections: service.NewConnectionService(store, sess),
 		Schema:      service.NewSchemaService(sess),
 		Query:       service.NewQueryService(sess),
+		Data:        service.NewDataService(sess),
 		Dialogs:     service.NewDialogService(),
 	}, nil
 }
