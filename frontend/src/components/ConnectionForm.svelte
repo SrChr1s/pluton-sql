@@ -1,0 +1,96 @@
+<script lang="ts">
+  import { api, emptyProfile, errMsg, type Profile } from '../lib/api'
+
+  let { profile, onsaved, oncancel }: { profile: Profile | null; onsaved: (p: Profile) => void; oncancel: () => void } = $props()
+
+  let p = $state<Profile>(profile ? { ...emptyProfile(), ...profile } : emptyProfile())
+  let password = $state('')
+  let drivers = $state<string[]>([])
+  let status = $state<{ ok: boolean; msg: string } | null>(null)
+  let busy = $state(false)
+  const isSqlite = $derived(p.driver === 'sqlite')
+
+  api.drivers().then((d) => (drivers = d))
+
+  async function onDriver() {
+    p.port = await api.defaultPort(p.driver)
+  }
+  async function test() {
+    busy = true; status = null
+    try { await api.testConnection(p, password); status = { ok: true, msg: 'Conexión exitosa' } }
+    catch (e) { status = { ok: false, msg: errMsg(e) } }
+    busy = false
+  }
+  async function save() {
+    if (!p.name.trim()) { status = { ok: false, msg: 'El nombre es obligatorio' }; return }
+    busy = true
+    try { onsaved(await api.saveConnection(p, password)) }
+    catch (e) { status = { ok: false, msg: errMsg(e) }; busy = false }
+  }
+</script>
+
+<div class="overlay">
+  <form class="modal" onsubmit={(e) => { e.preventDefault(); save() }}>
+    <h3>{profile ? 'Editar conexión' : 'Nueva conexión'}</h3>
+    <label>Nombre <input bind:value={p.name} /></label>
+    <label>Motor
+      <select bind:value={p.driver} onchange={onDriver}>
+        {#each drivers as d}<option value={d}>{d}</option>{/each}
+      </select>
+    </label>
+    {#if isSqlite}
+      <label>Archivo (.db) <input bind:value={p.filePath} placeholder="/ruta/base.db" /></label>
+    {:else}
+      <div class="row">
+        <label style="flex:3">Host <input bind:value={p.host} /></label>
+        <label style="flex:1">Puerto <input type="number" bind:value={p.port} /></label>
+      </div>
+      <div class="row">
+        <label>Usuario <input bind:value={p.user} autocomplete="off" /></label>
+        <label>Contraseña <input type="password" bind:value={password} placeholder={profile ? '(sin cambios)' : ''} autocomplete="new-password" /></label>
+      </div>
+      <label>Base de datos <input bind:value={p.database} placeholder="opcional" /></label>
+      {#if p.driver === 'mssql'}
+        <label>Cifrado (SQL Server)
+          <select bind:value={p.sslMode}>
+            <option value="">Requerido — toda la sesión (por defecto)</option>
+            <option value="false">Solo el login (el servidor decide el resto)</option>
+            <option value="disable">Desactivado — sin cifrar (inseguro)</option>
+          </select>
+        </label>
+        {#if p.sslMode === 'disable'}
+          <p class="warn">⚠ Sin cifrado, usuario y contraseña viajan casi en claro. No lo uses por Internet.</p>
+        {/if}
+      {/if}
+      <label>Versión mínima de TLS
+        <select bind:value={p.tlsMinVersion}>
+          <option value="">Por defecto (1.2)</option>
+          <option value="1.1">TLS 1.1 (legacy)</option>
+          <option value="1.0">TLS 1.0 (legacy)</option>
+        </select>
+      </label>
+      {#if p.tlsMinVersion === '1.0' || p.tlsMinVersion === '1.1'}
+        <p class="warn">⚠ TLS {p.tlsMinVersion} es inseguro. Úsalo solo con servidores antiguos que no puedas actualizar; no se verifica el certificado del servidor.</p>
+      {/if}
+    {/if}
+    {#if status}<p class:ok={status.ok} class="status">{status.msg}</p>{/if}
+    <div class="actions">
+      <button type="button" onclick={test} disabled={busy}>Probar</button>
+      <span style="flex:1"></span>
+      <button type="button" onclick={oncancel}>Cancelar</button>
+      <button type="submit" class="primary" disabled={busy}>Guardar</button>
+    </div>
+  </form>
+</div>
+
+<style>
+  .overlay { position: fixed; inset: 0; background: #0009; display: grid; place-items: center; z-index: 10; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 18px; width: 440px; display: flex; flex-direction: column; gap: 10px; }
+  h3 { margin: 0 0 4px; }
+  label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); flex: 1; }
+  .row { display: flex; gap: 10px; }
+  .actions { display: flex; gap: 8px; margin-top: 6px; }
+  .status { margin: 0; color: var(--danger); word-break: break-word; }
+  .status.ok { color: var(--ok); }
+  .warn { margin: 0; color: #e0b050; font-size: 12px; }
+</style>

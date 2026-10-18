@@ -1,0 +1,19 @@
+:root {
+  --bg: #14161a; --panel: #1b1e24; --panel2: #22262e; --border: #2d323c;
+  --text: #d7dae0; --muted: #8b92a0; --accent: #5b9cf5; --danger: #e5646b; --ok: #5ec27f;
+  --mono: ui-monospace, "JetBrains Mono", "Fira Code", Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, "Segoe UI", sans-serif; overflow: hidden; }
+button, input, select { font: inherit; color: inherit; }
+button { background: var(--panel2); border: 1px solid var(--border); border-radius: 5px; padding: 4px 10px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #0b1220; font-weight: 600; }
+button.danger { color: var(--danger); }
+input, select { background: var(--bg); border: 1px solid var(--border); border-radius: 5px; padding: 5px 8px; width: 100%; }
+input:focus, select:focus { outline: none; border-color: var(--accent); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
