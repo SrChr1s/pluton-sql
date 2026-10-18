@@ -11,6 +11,7 @@ export namespace config {
 	    filePath: string;
 	    sslMode: string;
 	    tlsMinVersion: string;
+	    color: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ConnectionProfile(source);
@@ -28,6 +29,7 @@ export namespace config {
 	        this.filePath = source["filePath"];
 	        this.sslMode = source["sslMode"];
 	        this.tlsMinVersion = source["tlsMinVersion"];
+	        this.color = source["color"];
 	    }
 	}
 

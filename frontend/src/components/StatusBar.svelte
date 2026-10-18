@@ -14,7 +14,7 @@
 </script>
 
 <footer>
-  <div class="left">
+  <div class="left" style:box-shadow={ws.active?.color ? `inset 3px 0 ${ws.active.color}` : undefined}>
     {#if ws.active}
       <Icon name="database" size={13} />
       <span class="name" title={ws.active.name}>{ws.tab?.database || ws.active.name}</span>

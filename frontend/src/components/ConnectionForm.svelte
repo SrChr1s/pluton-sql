@@ -1,13 +1,14 @@
 <script lang="ts">
   import { api, emptyProfile, errMsg, type Profile } from '../lib/api'
 
-  let { profile, onsaved, oncancel }: { profile: Profile | null; onsaved: (p: Profile) => void; oncancel: () => void } = $props()
+  let { profile, onsaved, oncancel }: { profile: Profile | null; onsaved: (p: Profile, connect: boolean) => void; oncancel: () => void } = $props()
 
   let p = $state<Profile>(profile ? { ...emptyProfile(), ...profile } : emptyProfile())
   let password = $state('')
   let drivers = $state<string[]>([])
   let status = $state<{ ok: boolean; msg: string } | null>(null)
   let busy = $state(false)
+  const COLORS = ['', '#ff6b6b', '#ff9f43', '#f7c948', '#2ed8a3', '#38bdf8', '#a06bff', '#ff6bd5']
   const isSqlite = $derived(p.driver === 'sqlite')
 
   api.drivers().then((d) => (drivers = d))
@@ -32,10 +33,10 @@
     catch (e) { status = { ok: false, msg: errMsg(e) } }
     busy = false
   }
-  async function save() {
+  async function save(connect: boolean) {
     if (!p.name.trim()) { status = { ok: false, msg: 'El nombre es obligatorio' }; return }
     busy = true
-    try { onsaved(await api.saveConnection(p, password)) }
+    try { onsaved(await api.saveConnection(p, password), connect) }
     catch (e) { status = { ok: false, msg: errMsg(e) }; busy = false }
   }
 </script>
@@ -43,9 +44,20 @@
 <svelte:window onkeydown={(e) => e.key === 'Escape' && oncancel()} />
 
 <div class="screen">
-  <form class="card" onsubmit={(e) => { e.preventDefault(); save() }}>
+  <form class="card" onsubmit={(e) => { e.preventDefault(); save(true) }}>
     <h3>{profile ? 'Editar conexión' : 'Nueva conexión'}</h3>
-    <label>Nombre <input bind:value={p.name} /></label>
+    <div class="row">
+      <label>Nombre <input bind:value={p.name} /></label>
+      <div class="colors" role="radiogroup" aria-label="Color de la conexión">
+        <span class="lbl">Color</span>
+        <div class="sw">
+          {#each COLORS as c}
+            <button type="button" role="radio" aria-checked={p.color === c} aria-label={c || 'Sin color'} title={c || 'Sin color'}
+                    class="dot" class:on={p.color === c} class:none={!c} style:background={c || 'transparent'} onclick={() => (p.color = c)}></button>
+          {/each}
+        </div>
+      </div>
+    </div>
     <label>Motor
       <select bind:value={p.driver} onchange={onDriver}>
         {#each drivers as d}<option value={d}>{d}</option>{/each}
@@ -102,6 +114,7 @@
       <button type="button" onclick={oncancel}>Cancelar</button>
       <span style="flex:1"></span>
       <button type="button" onclick={test} disabled={busy}>Probar</button>
+      <button type="button" onclick={() => save(false)} disabled={busy} title="Guarda la conexión sin conectarse">Guardar</button>
       <button type="submit" class="primary" disabled={busy}>Guardar y conectar</button>
     </div>
   </form>
@@ -115,6 +128,11 @@
   label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); flex: 1; }
   .box { background: var(--bg); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
   .row { display: flex; gap: 10px; }
+  .colors { display: flex; flex-direction: column; gap: 4px; color: var(--muted); }
+  .sw { display: flex; align-items: center; gap: 6px; height: 100%; }
+  .dot { width: 18px; height: 18px; padding: 0; border-radius: 50%; border: 2px solid transparent; }
+  .dot.none { border: 1px solid var(--muted); }
+  .dot.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
   .file { display: flex; gap: 6px; }
   .file input { flex: 1; }
   .file button { white-space: nowrap; }

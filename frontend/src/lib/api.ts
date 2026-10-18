@@ -34,7 +34,7 @@ export type CsvPreview = transfer.Preview
 export type ForeignKey = driver.ForeignKeyInfo
 
 export const emptyProfile = (): Profile =>
-  ({ id: '', name: '', driver: 'postgres', host: 'localhost', port: 5432, user: '', database: '', filePath: '', sslMode: '', tlsMinVersion: '' }) as Profile
+  ({ id: '', name: '', driver: 'postgres', host: 'localhost', port: 5432, user: '', database: '', filePath: '', sslMode: '', tlsMinVersion: '', color: '' }) as Profile
 
 // Go serializa un slice nil como null: las listas se normalizan a [] en un solo punto.
 const list = <A extends unknown[], T>(fn: (...a: A) => Promise<T[] | null>) =>

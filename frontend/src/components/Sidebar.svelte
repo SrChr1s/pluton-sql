@@ -35,7 +35,7 @@
         <div class="conn" class:sel={ws.active?.id === p.id} role="option" tabindex="0" aria-selected={ws.active?.id === p.id}
              onclick={() => open(p)} ondblclick={() => onedit(p)}
              onkeydown={(e) => e.key === 'Enter' && open(p)}>
-          <span class="bar"></span>
+          <span class="bar" style:background={p.color || undefined}></span>
           <span class="txt">
             <span class="name" title={p.name}>{p.name}</span>
             <span class="detail" title={detail(p)}>{detail(p)}</span>
@@ -118,7 +118,7 @@
   .conn:hover { background: var(--hover); }
   .conn.sel { background: var(--accent-soft); }
   .bar { align-self: stretch; width: 3px; margin: 2px 7px 2px 10px; border-radius: 2px; background: var(--border); }
-  .conn.sel .bar { background: var(--accent); }
+  .conn.sel .bar:not([style]) { background: var(--accent); }
   .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .detail { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

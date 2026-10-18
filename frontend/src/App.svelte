@@ -93,7 +93,12 @@
   <main>
     {#if form}
       <ConnectionForm profile={form.profile} oncancel={() => (form = null)}
-        onsaved={async (p) => { form = null; await ws.loadProfiles(); ws.connect(p); panel = 'entities' }} />
+        onsaved={async (p, connect) => {
+          form = null
+          await ws.loadProfiles()
+          if (connect) { ws.connect(p); panel = 'entities' }
+          else if (ws.active?.id === p.id) ws.active = ws.profiles.find((x) => x.id === p.id) ?? null // datos nuevos; se reconecta al usarla
+        }} />
     {:else if ws.active && ws.tab}
       <TabBar ontoggle={() => (sidebarOpen = !sidebarOpen)} />
       {#if ws.queryTab}

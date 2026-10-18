@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"sync"
 
@@ -26,7 +27,11 @@ type ConnectionProfile struct {
 	SSLMode  string `json:"sslMode"`
 	// TLSMinVersion permite negociar TLS antiguo con servidores legacy: "", "1.0", "1.1" o "1.2".
 	TLSMinVersion string `json:"tlsMinVersion"`
+	// Color es la etiqueta de color de la conexión: "" (sin color) o "#rrggbb".
+	Color string `json:"color"`
 }
+
+var colorRe = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // Store guarda los perfiles en un archivo JSON.
 type Store struct {
@@ -113,6 +118,9 @@ func (s *Store) Get(id string) (ConnectionProfile, error) {
 
 // Save crea (ID vacío) o actualiza un perfil y devuelve el resultado.
 func (s *Store) Save(p ConnectionProfile) (ConnectionProfile, error) {
+	if p.Color != "" && !colorRe.MatchString(p.Color) {
+		return p, fmt.Errorf("color %q no válido: se espera #rrggbb", p.Color)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	ps, err := s.load()
