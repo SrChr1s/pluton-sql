@@ -1,37 +1,20 @@
-/* Tokens de diseño. Claro por defecto; oscuro según el sistema o data-theme. */
+/* Tokens de diseño. Oscuro por defecto; claro con data-theme="light". */
 :root {
-  --bg: #f4f5f8;
-  --surface: #ffffff;
-  --surface-2: #eceef3;
-  --border: #d9dce4;
-  --text: #1c2230;
-  --muted: #667085;
-  --accent: #2f6fed;
-  --accent-fg: #ffffff;
-  --accent-soft: #2f6fed1a;
-  --danger: #d1383f;
-  --ok: #1d9a55;
-  --warn: #a8660b;
-  --hover: #0000000d;
-  --shadow: 0 8px 30px #0000002e;
-  --mono: ui-monospace, "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
-  --radius: 6px;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0f1115; --surface: #171a20; --surface-2: #20242c; --border: #2b303a;
-    --text: #dde1e9; --muted: #8b93a3; --accent: #6b9dff; --accent-fg: #0a1020;
-    --accent-soft: #6b9dff24; --danger: #ff7b82; --ok: #5ec27f; --warn: #e0b050;
-    --hover: #ffffff10; --shadow: 0 8px 30px #00000099; color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
   --bg: #0f1115; --surface: #171a20; --surface-2: #20242c; --border: #2b303a;
   --text: #dde1e9; --muted: #8b93a3; --accent: #6b9dff; --accent-fg: #0a1020;
   --accent-soft: #6b9dff24; --danger: #ff7b82; --ok: #5ec27f; --warn: #e0b050;
-  --hover: #ffffff10; --shadow: 0 8px 30px #00000099; color-scheme: dark;
+  --hover: #ffffff10; --shadow: 0 8px 30px #00000099;
+  --mono: ui-monospace, "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  --radius: 6px;
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  --bg: #f4f5f8; --surface: #ffffff; --surface-2: #eceef3; --border: #d9dce4;
+  --text: #1c2230; --muted: #667085; --accent: #2f6fed; --accent-fg: #ffffff;
+  --accent-soft: #2f6fed1a; --danger: #d1383f; --ok: #1d9a55; --warn: #a8660b;
+  --hover: #0000000d; --shadow: 0 8px 30px #0000002e;
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }

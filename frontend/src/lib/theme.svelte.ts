@@ -1,26 +1,23 @@
-export type ThemeMode = 'system' | 'light' | 'dark'
+export type ThemeMode = 'light' | 'dark'
 const KEY = 'pluton.theme'
 
 function read(): ThemeMode {
   try {
-    const v = localStorage.getItem(KEY)
-    if (v === 'light' || v === 'dark' || v === 'system') return v
-  } catch { /* sin almacenamiento: se usa el del sistema */ }
-  return 'system'
+    if (localStorage.getItem(KEY) === 'light') return 'light'
+  } catch { /* sin almacenamiento: se usa el oscuro */ }
+  return 'dark'
 }
 
 class Theme {
   mode = $state<ThemeMode>(read())
-  private systemDark = $state(matchMedia('(prefers-color-scheme: dark)').matches)
 
   constructor() {
-    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => (this.systemDark = e.matches))
     this.apply()
   }
 
-  /** Tema efectivo tras resolver "system". */
-  get resolved(): 'light' | 'dark' {
-    return this.mode === 'system' ? (this.systemDark ? 'dark' : 'light') : this.mode
+  /** Tema efectivo (alias de mode, lo usan los componentes). */
+  get resolved(): ThemeMode {
+    return this.mode
   }
 
   set(mode: ThemeMode) {
@@ -29,15 +26,13 @@ class Theme {
     this.apply()
   }
 
-  /** Alterna claro → oscuro → sistema. */
-  cycle() {
-    this.set(this.mode === 'light' ? 'dark' : this.mode === 'dark' ? 'system' : 'light')
+  /** Alterna entre oscuro y claro. */
+  toggle() {
+    this.set(this.mode === 'dark' ? 'light' : 'dark')
   }
 
   private apply() {
-    const el = document.documentElement
-    if (this.mode === 'system') delete el.dataset.theme
-    else el.dataset.theme = this.mode
+    document.documentElement.dataset.theme = this.mode
   }
 }
 

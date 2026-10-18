@@ -5,8 +5,8 @@
 
   const r = $derived(ws.queryTab?.result)
   const dt = $derived(ws.dataTab?.state)
-  const label = $derived({ system: 'Tema: sistema', light: 'Tema: claro', dark: 'Tema: oscuro' }[theme.mode])
-  const icon = $derived({ system: 'monitor', light: 'sun', dark: 'moon' }[theme.mode])
+  const label = $derived({ light: 'Tema: claro', dark: 'Tema: oscuro' }[theme.mode])
+  const icon = $derived({ light: 'sun', dark: 'moon' }[theme.mode])
 </script>
 
 <footer>
@@ -26,7 +26,7 @@
   {:else if r}
     <span>{r.isQuery ? `${r.rows.length} fila(s)${r.truncated ? ' (truncado)' : ''}` : `${r.rowsAffected} afectada(s)`} · {r.durationMs} ms</span>
   {/if}
-  <button class="ghost icon" title="{label} (clic para cambiar)" aria-label={label} onclick={() => theme.cycle()}>
+  <button class="ghost icon" title="{label} (clic para cambiar)" aria-label={label} onclick={() => theme.toggle()}>
     <Icon name={icon} size={14} />
   </button>
 </footer>
