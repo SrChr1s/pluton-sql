@@ -13,6 +13,7 @@
       {#if t.kind === 'query' && t.filePath}
         <span class="kind" title={t.filePath}><Icon name="file" size={13} /></span>
       {:else if t.kind === 'query'}
+        <span class="kind"><Icon name="sql" size={13} /></span>
         <span class="dot" class:running={t.running} class:err={!!t.error}></span>
       {:else}
         <span class="kind"><Icon name="table" size={13} /></span>
@@ -31,18 +32,18 @@
 </div>
 
 <style>
-  .tabs { display: flex; align-items: flex-end; gap: 1px; padding: 6px 8px 0; background: var(--bg); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
-  .tab { display: flex; align-items: center; gap: 7px; max-width: 220px; padding: 5px 4px 5px 10px; cursor: pointer; border: 1px solid transparent; border-bottom: none; border-radius: var(--radius) var(--radius) 0 0; color: var(--muted); user-select: none; }
+  .tabs { display: flex; align-items: stretch; padding: 0; background: var(--bg); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; min-height: 34px; }
+  .tab { display: flex; align-items: center; gap: 7px; min-width: 110px; max-width: 220px; padding: 0 4px 0 12px; cursor: pointer; border-right: 1px solid var(--border); border-top: 2px solid transparent; color: var(--muted); user-select: none; }
   .tab:hover { background: var(--hover); color: var(--text); }
-  .tab.sel { background: var(--surface); border-color: var(--border); color: var(--text); margin-bottom: -1px; padding-bottom: 6px; }
+  .tab.sel { background: var(--surface); border-top-color: var(--accent); color: var(--text); margin-bottom: -1px; }
   .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dot { width: 7px; height: 7px; border-radius: 50%; background: transparent; flex: none; }
   .dot.running { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
   .dot.err { background: var(--danger); }
   .close { opacity: 0; padding: 2px; }
   .tab:hover .close, .tab.sel .close, .close:focus-visible { opacity: 1; }
-  .add { margin: 0 0 4px 4px; color: var(--muted); }
-  .side { margin: 0 6px 4px 0; color: var(--muted); }
+  .add { align-self: center; margin: 0 4px; color: var(--muted); }
+  .side { align-self: center; margin: 0 4px; color: var(--muted); }
   .kind { display: inline-flex; color: var(--muted); }
   .pend { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
   @keyframes pulse { 50% { opacity: .3; } }

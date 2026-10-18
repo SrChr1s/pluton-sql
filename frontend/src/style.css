@@ -1,7 +1,7 @@
 /* Tokens de diseño. Oscuro por defecto; claro con data-theme="light". */
 :root {
-  --bg: #0f1115; --surface: #171a20; --surface-2: #20242c; --border: #2b303a;
-  --text: #dde1e9; --muted: #8b93a3; --accent: #6b9dff; --accent-fg: #0a1020;
+  --bg: #0b0b0c; --surface: #1a1a1c; --surface-2: #262628; --border: #2d2d30;
+  --text: #e2e4e9; --muted: #8e919a; --accent: #6b9dff; --accent-fg: #0a1020;
   --accent-soft: #6b9dff24; --danger: #ff7b82; --ok: #5ec27f; --warn: #e0b050;
   --hover: #ffffff10; --shadow: 0 8px 30px #00000099;
   --mono: ui-monospace, "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace;

@@ -288,23 +288,23 @@
   .banner.warn { background: color-mix(in srgb, var(--warn) 12%, var(--surface)); color: var(--warn); }
   .banner.info { background: var(--surface-2); color: var(--muted); }
 
-  .grid { flex: 1; overflow: auto; min-height: 0; outline: none; position: relative; }
+  .grid { flex: 1; overflow: auto; min-height: 0; outline: none; position: relative; background: var(--bg); }
   .grid:focus-visible { box-shadow: inset 0 0 0 2px var(--accent-soft); }
   table { border-collapse: separate; border-spacing: 0; font: 12px var(--mono); min-width: 100%; }
   table.busy { opacity: .55; }
-  th { position: sticky; top: 0; z-index: 2; background: var(--surface-2); text-align: left; padding: 0; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
-  .hd { width: 100%; justify-content: flex-start; gap: 5px; border: none; background: transparent; border-radius: 0; padding: 5px 12px; font: 600 12px var(--sans); color: var(--muted); white-space: nowrap; }
+  th { position: sticky; top: 0; z-index: 2; background: var(--surface); text-align: left; padding: 0; border-bottom: 1px solid var(--muted); border-right: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+  .hd { width: 100%; justify-content: flex-start; gap: 5px; border: none; background: transparent; border-radius: 0; padding: 3px 10px; font: 600 11.5px var(--sans); color: var(--muted); white-space: nowrap; }
   .hd:hover { background: var(--hover) !important; color: var(--text); }
   .ct { font: 10.5px var(--mono); opacity: .6; font-weight: 400; }
   .pk { color: var(--warn); display: inline-flex; }
-  td { padding: 3px 12px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); white-space: nowrap; max-width: 420px; overflow: hidden; text-overflow: ellipsis; cursor: default; position: relative; height: 26px; }
+  td { padding: 2px 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-right: 1px solid color-mix(in srgb, var(--border) 60%, transparent); white-space: nowrap; max-width: 420px; overflow: hidden; text-overflow: ellipsis; cursor: default; position: relative; height: 24px; }
   td.right { text-align: right; }
   td.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
   td.edited { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 3px 0 var(--accent); }
   tbody tr:hover td:not(.edited):not(.n) { background: var(--accent-soft); }
   tr.del td:not(.n) { text-decoration: line-through; opacity: .55; background: color-mix(in srgb, var(--danger) 10%, transparent); }
   tr.draft td:not(.n) { background: color-mix(in srgb, var(--ok) 12%, transparent); }
-  td.n, th.n { position: sticky; left: 0; z-index: 1; background: var(--surface-2); color: var(--muted); width: 1%; min-width: 58px; padding: 0 4px 0 8px; text-align: right; }
+  td.n, th.n { position: sticky; left: 0; z-index: 1; background: var(--surface); color: var(--muted); width: 1%; min-width: 58px; padding: 0 4px 0 8px; text-align: right; }
   th.n { z-index: 3; }
   .num { font-variant-numeric: tabular-nums; }
   .rm { opacity: 0; padding: 2px; margin-left: 2px; vertical-align: middle; }

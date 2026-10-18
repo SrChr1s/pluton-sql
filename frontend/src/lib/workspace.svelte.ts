@@ -28,6 +28,15 @@ export type DataTab = { kind: 'table'; id: string; title: string; database: stri
 export type Tab = QueryTab | DataTab
 
 const STORE = 'pluton.tabs.'
+const RECENT = 'pluton.recent'
+const RECENT_MAX = 5
+
+function readRecent(): string[] {
+  try {
+    const v = JSON.parse(localStorage.getItem(RECENT) ?? '[]')
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []
+  } catch { return [] }
+}
 
 export function selectFrom(driver: string, schema: string, table: string, limit = 100): string {
   const name = (schema ? quoteIdent(driver, schema) + '.' : '') + quoteIdent(driver, table)
@@ -36,6 +45,8 @@ export function selectFrom(driver: string, schema: string, table: string, limit 
 
 class Workspace {
   profiles = $state<Profile[]>([])
+  /** Ids de las últimas conexiones abiertas, la más reciente primero. */
+  recentIds = $state<string[]>(readRecent())
   active = $state<Profile | null>(null)
   private tabsByProfile = $state<Record<string, Tab[]>>({})
   private currentTab = $state<Record<string, string>>({})
@@ -72,8 +83,15 @@ class Workspace {
     this.profiles = await api.listConnections()
   }
 
+  /** Las conexiones recientes que aún existen. */
+  get recents(): Profile[] {
+    return this.recentIds.map((id) => this.profiles.find((p) => p.id === id)).filter((p): p is Profile => !!p)
+  }
+
   connect(p: Profile) {
     this.active = p
+    this.recentIds = [p.id, ...this.recentIds.filter((id) => id !== p.id)].slice(0, RECENT_MAX)
+    try { localStorage.setItem(RECENT, JSON.stringify(this.recentIds)) } catch { /* no crítico */ }
     if (!this.tabsByProfile[p.id]) {
       this.tabsByProfile[p.id] = this.restore(p.id)
       if (this.tabsByProfile[p.id].length === 0) this.newTab()
@@ -333,6 +351,8 @@ class Workspace {
     for (const k of Object.keys(this.indexes)) if (k.startsWith(`${p.id}|`)) delete this.indexes[k]
     try { localStorage.removeItem(STORE + p.id) } catch { /* ignorar */ }
     if (this.active?.id === p.id) this.active = null
+    this.recentIds = this.recentIds.filter((id) => id !== p.id)
+    try { localStorage.setItem(RECENT, JSON.stringify(this.recentIds)) } catch { /* no crítico */ }
     await this.loadProfiles()
   }
 }

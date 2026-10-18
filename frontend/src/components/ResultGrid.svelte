@@ -5,6 +5,16 @@
 
   const show = (v: unknown) => (v === null || v === undefined ? null : String(v))
   const isNum = (v: unknown) => typeof v === 'number'
+  const shortcuts: [string, string[][]][] = [
+    ['Ejecutar', [['Ctrl', 'Enter'], ['F5']]],
+    ['Autocompletar', [['Ctrl', 'Espacio']]],
+    ['Nueva pestaña', [['Ctrl', 'T']]],
+    ['Cerrar pestaña', [['Ctrl', 'W']]],
+    ['Abrir script', [['Ctrl', 'O']]],
+    ['Guardar script', [['Ctrl', 'S']]],
+    ['Historial', [['Ctrl', 'H']]],
+    ['Panel lateral', [['Ctrl', 'B']]],
+  ]
 </script>
 
 <div class="wrap">
@@ -13,7 +23,13 @@
   {:else if error}
     <div class="msg err" role="alert"><pre>{error}</pre></div>
   {:else if !result}
-    <div class="msg hint"><Icon name="sql" size={22} /><span>Escribe una consulta y pulsa <kbd>Ctrl</kbd> <kbd>Enter</kbd></span></div>
+    <div class="keys">
+      {#each shortcuts as [label, combos]}
+        <div class="krow"><span class="klabel">{label}</span>
+          <span class="kcombos">{#each combos as combo}<span class="kcombo">{#each combo as k}<kbd>{k}</kbd>{/each}</span>{/each}</span>
+        </div>
+      {/each}
+    </div>
   {:else if !result.isQuery}
     <div class="msg ok">Consulta ejecutada — {result.rowsAffected} fila(s) afectada(s) en {result.durationMs} ms</div>
   {:else if result.rows.length === 0}
@@ -39,14 +55,18 @@
 </div>
 
 <style>
-  .wrap { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--surface); }
+  .wrap { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--bg); }
+  .keys { margin: auto; display: flex; flex-direction: column; gap: 7px; padding: 16px; }
+  .krow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: center; min-width: 340px; }
+  .klabel { text-align: right; color: var(--muted); }
+  .kcombos { display: flex; flex-direction: column; gap: 4px; }
+  .kcombo { display: flex; gap: 4px; }
   .scroll { flex: 1; overflow: auto; min-height: 0; }
   table { border-collapse: separate; border-spacing: 0; font: 12px var(--mono); min-width: 100%; }
-  th { position: sticky; top: 0; z-index: 2; background: var(--surface-2); text-align: left; font: 600 12px var(--sans); color: var(--muted); }
-  th, td { padding: 4px 12px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); white-space: nowrap; max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
-  tbody tr:nth-child(even) td:not(.n) { background: color-mix(in srgb, var(--surface-2) 40%, transparent); }
+  th { position: sticky; top: 0; z-index: 2; background: var(--surface); text-align: left; font: 600 11.5px var(--sans); color: var(--muted); border-bottom-color: var(--muted); }
+  th, td { padding: 2px 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-right: 1px solid color-mix(in srgb, var(--border) 60%, transparent); white-space: nowrap; max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
   tbody tr:hover td { background: var(--accent-soft); }
-  .n { position: sticky; left: 0; z-index: 1; background: var(--surface-2); color: var(--muted); text-align: right; width: 1%; font-family: var(--mono); }
+  .n { position: sticky; left: 0; z-index: 1; background: var(--surface); color: var(--muted); text-align: right; width: 1%; font-family: var(--mono); }
   th.n { z-index: 3; }
   .num { text-align: right; }
   .null { color: var(--muted); font-style: italic; opacity: .7; }

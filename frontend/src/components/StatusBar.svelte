@@ -1,39 +1,55 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
   import { ws } from '../lib/workspace.svelte'
-  import { theme } from '../lib/theme.svelte'
+  import { ui } from '../lib/ui.svelte'
 
-  const r = $derived(ws.queryTab?.result)
+  const q = $derived(ws.queryTab)
+  const r = $derived(q?.result)
   const dt = $derived(ws.dataTab?.state)
-  const label = $derived({ light: 'Tema: claro', dark: 'Tema: oscuro' }[theme.mode])
-  const icon = $derived({ light: 'sun', dark: 'moon' }[theme.mode])
+
+  function exportQuery() {
+    if (!q || !ws.active) return
+    ui.exporting = { kind: 'query', profile: ws.active.id, database: q.database, sql: q.lastSql || q.sql, name: q.title.replace(/\.sql$/i, '') }
+  }
 </script>
 
 <footer>
-  <span class="grp">
+  <div class="left">
     {#if ws.active}
-      <Icon name="server" size={13} /> {ws.active.name}
-      {#if ws.tab?.database}<span class="sep">›</span><Icon name="database" size={13} /> {ws.tab.database}{/if}
+      <Icon name="database" size={13} />
+      <span class="name" title={ws.active.name}>{ws.tab?.database || ws.active.name}</span>
+      <span class="grow"></span>
+      <span class="drv">{ws.active.driver}</span>
     {:else}
-      Sin conexión
+      <span class="name">Sin conexión</span>
     {/if}
-  </span>
-  <span class="grow"></span>
-  {#if dt}
-    <span>{dt.page ? `${dt.page.rows.length} fila(s)${dt.total !== null ? ` de ${dt.total}` : dt.page.hasMore ? '+' : ''}` : ''}{dt.pending ? ` · ${dt.pending} cambio(s) pendiente(s)` : ''}</span>
-  {:else if ws.queryTab?.running}
-    <span>Ejecutando…</span>
-  {:else if r}
-    <span>{r.isQuery ? `${r.rows.length} fila(s)${r.truncated ? ' (truncado)' : ''}` : `${r.rowsAffected} afectada(s)`} · {r.durationMs} ms</span>
-  {/if}
-  <button class="ghost icon" title="{label} (clic para cambiar)" aria-label={label} onclick={() => theme.toggle()}>
-    <Icon name={icon} size={14} />
-  </button>
+  </div>
+  <div class="right">
+    {#if dt}
+      <span>{dt.page ? `${dt.page.rows.length} fila(s)${dt.total !== null ? ` de ${dt.total}` : dt.page.hasMore ? '+' : ''}` : ''}{dt.pending ? ` · ${dt.pending} cambio(s) pendiente(s)` : ''}</span>
+    {:else if q?.running}
+      <span>Ejecutando…</span>
+    {:else if r}
+      <span>{r.isQuery ? `${r.rows.length} fila(s)${r.truncated ? ' (truncado)' : ''}` : `${r.rowsAffected} afectada(s)`} · {r.durationMs} ms</span>
+    {:else if q}
+      <span>Sin datos</span>
+    {/if}
+    <span class="grow"></span>
+    {#if q}
+      <button class="ghost" title="Exportar el resultado a CSV, JSON o INSERT (se vuelve a ejecutar y se exportan todas las filas)" disabled={!r?.isQuery} onclick={exportQuery}>
+        <Icon name="download" size={13} /> Exportar
+      </button>
+    {/if}
+  </div>
 </footer>
 
 <style>
-  footer { display: flex; align-items: center; gap: 14px; padding: 2px 10px; height: 26px; background: var(--surface); border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
-  .grp { display: flex; align-items: center; gap: 5px; min-width: 0; white-space: nowrap; overflow: hidden; }
-  .sep { opacity: .5; }
+  footer { display: contents; }
+  .left, .right { display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 12px; font-size: 12px; color: var(--muted); min-width: 0; white-space: nowrap; }
+  .left { background: var(--surface); color: var(--text); font-weight: 500; }
+  .right { background: var(--bg); }
+  .name { overflow: hidden; text-overflow: ellipsis; }
   .grow { flex: 1; }
+  .drv { font-weight: 400; color: var(--muted); }
+  .right button { padding: 3px 8px; font-size: 12px; }
 </style>

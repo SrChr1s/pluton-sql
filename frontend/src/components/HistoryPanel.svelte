@@ -5,9 +5,9 @@
   import { ui } from '../lib/ui.svelte'
   import { copyText } from '../lib/clipboard'
 
-  let { onclose }: { onclose: () => void } = $props()
+  let { mode }: { mode: 'history' | 'saved' } = $props()
 
-  let view = $state<'history' | 'saved'>('history')
+  const view = $derived(mode)
   let search = $state('')
   let entries = $state<HistoryEntry[]>([])
   let saved = $state<SavedQuery[]>([])
@@ -89,15 +89,7 @@
   const copy = async (sql: string) => { await copyText(sql); ui.toast('SQL copiado') }
 </script>
 
-<aside class="hp" aria-label="Historial y consultas guardadas">
-  <div class="top">
-    <div class="seg" role="tablist">
-      <button role="tab" class:on={view === 'history'} aria-selected={view === 'history'} onclick={() => (view = 'history')}><Icon name="clock" size={13} /> Historial</button>
-      <button role="tab" class:on={view === 'saved'} aria-selected={view === 'saved'} onclick={() => (view = 'saved')}><Icon name="bookmark" size={13} /> Guardadas</button>
-    </div>
-    <button class="ghost icon" aria-label="Cerrar el panel" title="Cerrar (Ctrl+H)" onclick={onclose}><Icon name="x" size={14} /></button>
-  </div>
-
+<div class="hp">
   {#if view === 'history'}
     <label class="search">
       <Icon name="search" size={14} />
@@ -146,14 +138,10 @@
       {/each}
     </div>
   {/if}
-</aside>
+</div>
 
 <style>
-  .hp { width: 340px; flex: none; display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--border); background: var(--surface); }
-  .top { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-bottom: 1px solid var(--border); }
-  .seg { display: flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .seg button { border: none; border-radius: 0; background: transparent; padding: 3px 10px; }
-  .seg button.on { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+  .hp { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   .search { display: flex; align-items: center; gap: 6px; margin: 8px; padding: 0 4px 0 8px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); }
   .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
   .search input { border: none; background: transparent; box-shadow: none; padding: 5px 0; }

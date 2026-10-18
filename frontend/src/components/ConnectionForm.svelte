@@ -42,8 +42,8 @@
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && oncancel()} />
 
-<div class="overlay">
-  <form class="modal" onsubmit={(e) => { e.preventDefault(); save() }}>
+<div class="screen">
+  <form class="card" onsubmit={(e) => { e.preventDefault(); save() }}>
     <h3>{profile ? 'Editar conexión' : 'Nueva conexión'}</h3>
     <label>Nombre <input bind:value={p.name} /></label>
     <label>Motor
@@ -70,7 +70,9 @@
       </div>
       <label>Base de datos <input bind:value={p.database} placeholder="opcional" /></label>
       {#if p.driver === 'mssql'}
-        <label>Cifrado (SQL Server)
+        <div class="box">
+        <h4>Opciones de SQL Server</h4>
+        <label>Cifrado
           <select bind:value={p.sslMode}>
             <option value="">Requerido — toda la sesión (por defecto)</option>
             <option value="false">Solo el login (el servidor decide el resto)</option>
@@ -80,37 +82,43 @@
         {#if p.sslMode === 'disable'}
           <p class="warn">⚠ Sin cifrado, usuario y contraseña viajan casi en claro. No lo uses por Internet.</p>
         {/if}
+        </div>
       {/if}
-      <label>Versión mínima de TLS
-        <select bind:value={p.tlsMinVersion}>
-          <option value="">Por defecto (1.2)</option>
-          <option value="1.1">TLS 1.1 (legacy)</option>
-          <option value="1.0">TLS 1.0 (legacy)</option>
-        </select>
-      </label>
-      {#if p.tlsMinVersion === '1.0' || p.tlsMinVersion === '1.1'}
-        <p class="warn">⚠ TLS {p.tlsMinVersion} es inseguro. Úsalo solo con servidores antiguos que no puedas actualizar; no se verifica el certificado del servidor.</p>
-      {/if}
+      <div class="box">
+        <label>Versión mínima de TLS
+          <select bind:value={p.tlsMinVersion}>
+            <option value="">Por defecto (1.2)</option>
+            <option value="1.1">TLS 1.1 (legacy)</option>
+            <option value="1.0">TLS 1.0 (legacy)</option>
+          </select>
+        </label>
+        {#if p.tlsMinVersion === '1.0' || p.tlsMinVersion === '1.1'}
+          <p class="warn">⚠ TLS {p.tlsMinVersion} es inseguro. Úsalo solo con servidores antiguos que no puedas actualizar; no se verifica el certificado del servidor.</p>
+        {/if}
+      </div>
     {/if}
     {#if status}<p class:ok={status.ok} class="status">{status.msg}</p>{/if}
     <div class="actions">
-      <button type="button" onclick={test} disabled={busy}>Probar</button>
-      <span style="flex:1"></span>
       <button type="button" onclick={oncancel}>Cancelar</button>
-      <button type="submit" class="primary" disabled={busy}>Guardar</button>
+      <span style="flex:1"></span>
+      <button type="button" onclick={test} disabled={busy}>Probar</button>
+      <button type="submit" class="primary" disabled={busy}>Guardar y conectar</button>
     </div>
   </form>
 </div>
 
 <style>
-  .overlay { position: fixed; inset: 0; background: #0008; display: grid; place-items: center; z-index: 10; }
-  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); max-height: 92vh; overflow: auto; padding: 18px; width: 440px; display: flex; flex-direction: column; gap: 10px; }
-  h3 { margin: 0 0 4px; }
-  label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); flex: 1; }
+  .screen { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px 24px; background: var(--bg); }
+  .card { background: var(--surface); border-radius: 10px; padding: 20px; width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 12px; }
+  h3 { margin: 0 0 4px; font-size: 18px; }
+  h4 { margin: 0; font-size: 13px; }
+  label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); flex: 1; }
+  .box { background: var(--bg); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
   .row { display: flex; gap: 10px; }
   .file { display: flex; gap: 6px; }
+  .file input { flex: 1; }
   .file button { white-space: nowrap; }
-  .actions { display: flex; gap: 8px; margin-top: 6px; }
+  .actions { display: flex; gap: 8px; margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
   .status { margin: 0; color: var(--danger); word-break: break-word; }
   .status.ok { color: var(--ok); }
   .warn { margin: 0; color: var(--warn); font-size: 12px; }

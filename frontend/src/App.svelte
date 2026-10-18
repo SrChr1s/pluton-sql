@@ -9,7 +9,7 @@
   import ConnectionForm from './components/ConnectionForm.svelte'
   import ConfirmDialog from './components/ConfirmDialog.svelte'
   import SchemaChangeDialog from './components/SchemaChangeDialog.svelte'
-  import HistoryPanel from './components/HistoryPanel.svelte'
+  import Rail, { type Panel } from './components/Rail.svelte'
   import ExportDialog from './components/ExportDialog.svelte'
   import ImportDialog from './components/ImportDialog.svelte'
   import PromptDialog from './components/PromptDialog.svelte'
@@ -25,7 +25,9 @@
   let sidebarW = $state<number>(saved.sidebarW ?? 280)
   let sidebarOpen = $state<boolean>(saved.sidebarOpen ?? true)
   let editorPct = $state<number>(saved.editorPct ?? 42)
-  let historyOpen = $state<boolean>(saved.historyOpen ?? false)
+  let panel = $state<Panel>(saved.panel ?? 'connections')
+  // Sin conexión activa solo tiene sentido la lista de conexiones.
+  const shownPanel = $derived<Panel>(ws.active ? panel : 'connections')
 
   ws.loadProfiles()
 
@@ -39,7 +41,7 @@
     return () => clearTimeout(h)
   })
   $effect(() => {
-    const layout = JSON.stringify({ sidebarW, sidebarOpen, editorPct, historyOpen })
+    const layout = JSON.stringify({ sidebarW, sidebarOpen, editorPct, panel })
     const h = setTimeout(() => { try { localStorage.setItem(LAYOUT, layout) } catch { /* no crítico */ } }, 300)
     return () => clearTimeout(h)
   })
@@ -57,7 +59,7 @@
     else if (e.key === 'F5') { e.preventDefault(); if (ws.dataTab) ws.dataTab.state.reload(); else ws.run() }
     else if (mod && k === 's') { e.preventDefault(); if (ws.dataTab) void ws.dataTab.state.apply(); else void ws.saveFile(ws.queryTab, e.shiftKey) }
     else if (mod && k === 'o') { e.preventDefault(); if (ws.active) void ws.openFile() }
-    else if (mod && k === 'h') { e.preventDefault(); if (ws.queryTab) historyOpen = !historyOpen }
+    else if (mod && k === 'h') { e.preventDefault(); if (ws.active) { sidebarOpen = true; panel = shownPanel === 'history' ? 'entities' : 'history' } }
     else if (mod && e.key === '.') { e.preventDefault(); ws.cancel() }
   }
 
@@ -78,45 +80,42 @@
 
 <svelte:window {onkeydown} />
 
-<div class="app" style:grid-template-columns={sidebarOpen ? `${sidebarW}px 5px 1fr` : '1fr'}>
+<div class="app" style:grid-template-columns="48px {sidebarOpen ? sidebarW : 0}px 1fr">
+  <div class="rail"><Rail panel={shownPanel} onselect={(p) => { panel = p; sidebarOpen = true }} /></div>
   {#if sidebarOpen}
-    <Sidebar onnew={() => (form = { profile: null })} onedit={(p) => (form = { profile: p })} />
-    <div class="vsplit" role="separator" aria-orientation="vertical" aria-label="Redimensionar panel lateral" onpointerdown={(e) => drag(e, 'x')}></div>
+    <div class="side">
+      <Sidebar panel={shownPanel} onnew={() => (form = { profile: null })} onedit={(p) => (form = { profile: p })}
+        onconnect={() => { panel = 'entities'; form = null }} />
+      <div class="vsplit" role="separator" aria-orientation="vertical" aria-label="Redimensionar panel lateral" onpointerdown={(e) => drag(e, 'x')}></div>
+    </div>
   {/if}
 
   <main>
-    {#if ws.active && ws.tab}
+    {#if form}
+      <ConnectionForm profile={form.profile} oncancel={() => (form = null)}
+        onsaved={async (p) => { form = null; await ws.loadProfiles(); ws.connect(p); panel = 'entities' }} />
+    {:else if ws.active && ws.tab}
       <TabBar ontoggle={() => (sidebarOpen = !sidebarOpen)} />
       {#if ws.queryTab}
         {@const q = ws.queryTab}
-        <div class="toolbar">
-          <button class="primary" onclick={() => ws.run()} disabled={q.running || !q.sql.trim()}>
-            <Icon name="play" size={12} /> Ejecutar
-          </button>
-          <button onclick={() => ws.cancel()} disabled={!q.running}><Icon name="stop" size={12} /> Cancelar</button>
-          <button class="ghost" title="Exportar el resultado visible a CSV, JSON o INSERT (se vuelve a ejecutar y se exportan todas las filas)" disabled={!q.result?.isQuery}
-                  onclick={() => ui.exporting = { kind: 'query', profile: ws.active!.id, database: q.database, sql: q.lastSql || q.sql, name: q.title.replace(/\.sql$/i, '') }}>
-            <Icon name="download" size={14} /> Exportar
-          </button>
-          <span class="sep"></span>
-          <button class="ghost" title="Abrir un script .sql (Ctrl+O)" onclick={() => ws.openFile()}><Icon name="folder" size={14} /> Abrir</button>
-          <button class="ghost" title={q.filePath ? `Guardar en ${q.filePath} (Ctrl+S)` : 'Guardar como archivo .sql (Ctrl+S)'} onclick={() => ws.saveFile(q)}><Icon name="save" size={14} /> Guardar</button>
-          {#if q.filePath}<button class="ghost" title="Guardar como… (Ctrl+Shift+S)" onclick={() => ws.saveFile(q, true)}>Guardar como…</button>{/if}
-          <span class="grow"></span>
-          <span class="keys"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> ejecuta la selección o todo</span>
-          <button class="ghost" class:active={historyOpen} title="Historial y consultas guardadas (Ctrl+H)" aria-pressed={historyOpen} onclick={() => (historyOpen = !historyOpen)}><Icon name="clock" size={14} /> Historial</button>
-        </div>
-        <div class="body">
         <div class="work">
           <div class="editor" style:height="{editorPct}%">
             {#key q.id}
               <QueryEditor bind:value={q.sql} driver={ws.active.driver} index={ws.indexFor(q.database)} onrun={(text) => ws.run(text)} />
             {/key}
+            <div class="fab">
+              <button class="ghost" title="Abrir un script .sql (Ctrl+O)" onclick={() => ws.openFile()}><Icon name="folder" size={14} /> Abrir</button>
+              <button title={q.filePath ? `Guardar en ${q.filePath} (Ctrl+S)` : 'Guardar como archivo .sql (Ctrl+S)'} onclick={() => ws.saveFile(q)}>Guardar</button>
+              {#if q.filePath}<button class="ghost" title="Guardar como… (Ctrl+Shift+S)" onclick={() => ws.saveFile(q, true)}>Guardar como…</button>{/if}
+              {#if q.running}
+                <button onclick={() => ws.cancel()}><Icon name="stop" size={12} /> Cancelar</button>
+              {:else}
+                <button class="run" title="Ejecuta la selección o todo (Ctrl+Enter)" onclick={() => ws.run()} disabled={!q.sql.trim()}>Ejecutar</button>
+              {/if}
+            </div>
           </div>
           <div class="hsplit" role="separator" aria-orientation="horizontal" aria-label="Redimensionar editor" onpointerdown={(e) => drag(e, 'y')}></div>
           <div class="results"><ResultGrid result={q.result} error={q.error} running={q.running} /></div>
-        </div>
-        {#if historyOpen}<HistoryPanel onclose={() => (historyOpen = false)} />{/if}
         </div>
       {:else if ws.dataTab}
         {#key ws.dataTab.id}<TableView tab={ws.dataTab} />{/key}
@@ -131,13 +130,9 @@
     {/if}
   </main>
 
-  <div class="status"><StatusBar /></div>
+  <StatusBar />
 </div>
 
-{#if form}
-  <ConnectionForm profile={form.profile} oncancel={() => (form = null)}
-    onsaved={async (p) => { form = null; await ws.loadProfiles(); if (ws.active?.id === p.id || !ws.active) ws.connect(p) }} />
-{/if}
 {#if ui.schema}
   {#key ui.schema}
     <SchemaChangeDialog loc={ui.schema.loc} kind={ui.schema.kind} target={ui.schema.target} structure={ui.schema.structure}
@@ -152,20 +147,22 @@
 <Toasts />
 
 <style>
-  .app { display: grid; grid-template-rows: 1fr 26px; height: 100%; background: var(--surface); }
-  .status { grid-column: 1 / -1; }
-  main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--surface); }
-  .vsplit { cursor: col-resize; background: transparent; margin-left: -2px; position: relative; z-index: 5; }
+  .app { display: grid; grid-template-rows: 1fr 28px; height: 100%; background: var(--bg); }
+  .rail { grid-column: 1; grid-row: 1; min-height: 0; }
+  .side { grid-column: 2; grid-row: 1; min-height: 0; min-width: 0; position: relative; }
+  .vsplit { position: absolute; top: 0; right: 0; bottom: 0; width: 4px; cursor: col-resize; z-index: 5; }
   .vsplit:hover, .vsplit:active { background: var(--accent); opacity: .5; }
-  .toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--surface); }
-  .grow { flex: 1; }
-  .keys { color: var(--muted); font-size: 12px; }
-  .body { flex: 1; display: flex; min-height: 0; }
+  main { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
+  .app > :global(footer .left) { grid-column: 1 / 3; grid-row: 2; }
+  .app > :global(footer .right) { grid-column: 3; grid-row: 2; }
   .work { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-  .sep { width: 1px; align-self: stretch; background: var(--border); margin: 2px 2px; }
-  button.active { background: var(--accent-soft); color: var(--accent); }
-  .editor { min-height: 60px; }
-  .hsplit { height: 5px; margin: -2px 0; cursor: row-resize; position: relative; z-index: 5; background: transparent; border-top: 1px solid var(--border); }
+  .editor { min-height: 60px; position: relative; background: var(--surface); }
+  .fab { position: absolute; right: 18px; bottom: 10px; display: flex; gap: 8px; z-index: 3; }
+  .fab button { background: var(--surface-2); }
+  .fab button.ghost { background: transparent; }
+  .fab button.run { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+  .fab button.run:hover:not(:disabled) { background: var(--text); filter: brightness(.9); }
+  .hsplit { height: 5px; margin: -2px 0; cursor: row-resize; position: relative; z-index: 5; background: transparent; }
   .hsplit:hover, .hsplit:active { background: var(--accent); opacity: .5; }
   .results { flex: 1; min-height: 0; }
   .welcome { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--muted); text-align: center; padding: 24px; }

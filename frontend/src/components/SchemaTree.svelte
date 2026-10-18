@@ -111,7 +111,7 @@
 
 <style>
   .tree { font-size: 12.5px; padding: 2px 0 8px; }
-  .item, .col { display: flex; align-items: center; gap: 5px; padding-right: 8px; height: 24px; white-space: nowrap; }
+  .item, .col { display: flex; align-items: center; gap: 5px; padding-right: 8px; height: 22px; white-space: nowrap; }
   .item { cursor: pointer; }
   .item:hover { background: var(--hover); }
   .item :global(svg) { color: var(--muted); }
@@ -119,7 +119,7 @@
   .info { opacity: 0; padding: 2px; margin-left: auto; }
   .item:hover .info, .info:focus-visible { opacity: 1; }
   .caret { width: 12px; display: grid; place-items: center; }
-  .col { justify-content: space-between; color: var(--muted); height: 21px; gap: 10px; }
+  .col { justify-content: space-between; color: var(--muted); height: 20px; gap: 10px; }
   .cname { display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; }
   .pk { color: var(--warn); display: inline-flex; }
   .type { font: 11px var(--mono); opacity: .75; }
