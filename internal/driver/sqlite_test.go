@@ -143,3 +143,46 @@ func TestMSSQLPagingAvoidsOffsetFetch(t *testing.T) {
 		t.Errorf("sin orden debe usar ORDER BY (SELECT NULL):\n%s", q2)
 	}
 }
+
+func TestSQLiteListAllColumns(t *testing.T) {
+	d, _ := Get("sqlite")
+	db, err := sql.Open(d.DriverName(), d.DSN(config.ConnectionProfile{FilePath: filepath.Join(t.TempDir(), "t.db")}, "", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, q := range []string{
+		`CREATE TABLE zeta (id INTEGER PRIMARY KEY, nombre TEXT)`,
+		`CREATE TABLE alfa (a INT, b REAL, c BLOB)`,
+		`CREATE TABLE con_auto (id INTEGER PRIMARY KEY AUTOINCREMENT)`, // crea la tabla interna sqlite_sequence
+		`CREATE VIEW v_alfa AS SELECT a FROM alfa`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := d.ListAllColumns(context.Background(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var seq []string
+	for _, c := range got {
+		seq = append(seq, c.Table+"."+c.Column)
+		if c.Schema != "" {
+			t.Errorf("SQLite no tiene esquemas: %+v", c)
+		}
+		if strings.HasPrefix(c.Table, "sqlite_") {
+			t.Errorf("las tablas internas no deben aparecer: %+v", c)
+		}
+		if c.Table == "v_alfa" != c.IsView {
+			t.Errorf("IsView incorrecto: %+v", c)
+		}
+	}
+	want := "alfa.a alfa.b alfa.c con_auto.id v_alfa.a zeta.id zeta.nombre"
+	if strings.Join(seq, " ") != want {
+		t.Errorf("orden por tabla y posición de columna:\n got %s\nwant %s", strings.Join(seq, " "), want)
+	}
+	if got[1].DataType != "REAL" {
+		t.Errorf("tipo de dato: %+v", got[1])
+	}
+}

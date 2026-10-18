@@ -47,7 +47,7 @@
     <section class="schema">
       <header>
         <span class="h">Esquema</span>
-        <button class="ghost icon" title="Recargar esquema" aria-label="Recargar esquema" onclick={() => reloads++}><Icon name="refresh" size={14} /></button>
+        <button class="ghost icon" title="Recargar esquema" aria-label="Recargar esquema" onclick={() => { reloads++; ws.invalidateIndex() }}><Icon name="refresh" size={14} /></button>
       </header>
       <label class="search">
         <Icon name="search" size={14} />

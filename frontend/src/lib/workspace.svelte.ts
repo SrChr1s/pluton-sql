@@ -1,5 +1,7 @@
 import { api, errMsg, type Profile, type QueryResult } from './api'
 import { TableState, type TableLocation } from './table.svelte'
+import { quoteIdent } from './sql'
+import type { SchemaIndex } from './sqlcomplete'
 import { ui } from './ui.svelte'
 
 export type QueryTab = {
@@ -27,13 +29,6 @@ export type Tab = QueryTab | DataTab
 
 const STORE = 'pluton.tabs.'
 
-/** Comillas de identificador según el motor. */
-export function quoteIdent(driver: string, name: string): string {
-  if (driver === 'mysql') return '`' + name.replaceAll('`', '``') + '`'
-  if (driver === 'mssql') return '[' + name.replaceAll(']', ']]') + ']'
-  return '"' + name.replaceAll('"', '""') + '"'
-}
-
 export function selectFrom(driver: string, schema: string, table: string, limit = 100): string {
   const name = (schema ? quoteIdent(driver, schema) + '.' : '') + quoteIdent(driver, table)
   return driver === 'mssql' ? `SELECT TOP ${limit} * FROM ${name};` : `SELECT * FROM ${name} LIMIT ${limit};`
@@ -47,6 +42,8 @@ class Workspace {
   private counter = 0
   /** Sube cuando cambian las tablas (crear/renombrar/borrar) para que el árbol de esquema se recargue. */
   schemaVersion = $state(0)
+  /** Índice de tablas y columnas para el autocompletado, por conexión y base de datos ('cargando' mientras llega). */
+  private indexes = $state<Record<string, SchemaIndex | 'loading' | 'error'>>({})
   /** Sube tras cada ejecución para que el panel de historial se actualice. */
   historyVersion = $state(0)
 
@@ -167,6 +164,7 @@ class Workspace {
     try {
       t.result = await api.execute(t.queryId, p.id, t.database, q)
       t.lastSql = q
+      if (/^\s*(?:--[^\n]*\n\s*)*(CREATE|ALTER|DROP|RENAME)\b/i.test(q)) this.invalidateIndex() // la estructura pudo cambiar
     } catch (e) {
       t.error = errMsg(e)
       t.result = null
@@ -233,12 +231,40 @@ class Workspace {
     tab.state.load()
   }
 
+  private indexKey(database: string) { return `${this.active?.id}|${database}` }
+
+  /** El índice ya cargado de esa base de datos (null si aún no está). Es una lectura pura. */
+  indexFor(database: string): SchemaIndex | null {
+    const v = this.indexes[this.indexKey(database)]
+    return v && typeof v === 'object' ? v : null
+  }
+
+  /** Carga el índice si falta. El autocompletado es opcional: un fallo no molesta, solo no hay sugerencias. */
+  async ensureIndex(database: string) {
+    if (!this.active) return
+    const key = this.indexKey(database)
+    if (this.indexes[key]) return
+    this.indexes[key] = 'loading'
+    try {
+      this.indexes[key] = await api.schemaIndex(this.active.id, database)
+    } catch {
+      this.indexes[key] = 'error'
+    }
+  }
+
+  /** Olvida los índices de la conexión activa (o de todas) para que se vuelvan a cargar. */
+  invalidateIndex(all = false) {
+    const prefix = `${this.active?.id}|`
+    for (const k of Object.keys(this.indexes)) if (all || k.startsWith(prefix)) delete this.indexes[k]
+  }
+
   /** Reacciona a una modificación de estructura ya aplicada. */
   async schemaChanged(loc: TableLocation, op: { kind: string; newName?: string }) {
     const tab = this.tabs.find(
       (t): t is DataTab => t.kind === 'table' && t.state.loc.database === loc.database && t.state.loc.schema === loc.schema && t.state.loc.table === loc.table,
     )
     tab?.state.clearPending() // sus cambios pendientes ya no encajan con la nueva estructura
+    this.invalidateIndex()
     if (op.kind === 'create_table') {
       this.schemaVersion++
       this.openTable(loc.database, loc.schema, loc.table, 'structure')
@@ -299,6 +325,7 @@ class Workspace {
   async removeProfile(p: Profile) {
     await api.deleteConnection(p.id)
     delete this.tabsByProfile[p.id]
+    for (const k of Object.keys(this.indexes)) if (k.startsWith(`${p.id}|`)) delete this.indexes[k]
     try { localStorage.removeItem(STORE + p.id) } catch { /* ignorar */ }
     if (this.active?.id === p.id) this.active = null
     await this.loadProfiles()

@@ -6,8 +6,10 @@
   import { sql, PostgreSQL, MySQL, SQLite, MSSQL } from '@codemirror/lang-sql'
   import { oneDark } from '@codemirror/theme-one-dark'
   import { theme } from '../lib/theme.svelte'
+  import type { CompletionContext, CompletionResult } from '@codemirror/autocomplete'
+  import { complete, type SchemaIndex, type Suggestion } from '../lib/sqlcomplete'
 
-  let { value = $bindable(''), driver, onrun }: { value: string; driver: string; onrun: (sql: string) => void } = $props()
+  let { value = $bindable(''), driver, index = null, onrun }: { value: string; driver: string; index?: SchemaIndex | null; onrun: (sql: string) => void } = $props()
 
   const dialects: Record<string, typeof PostgreSQL> = { postgres: PostgreSQL, mysql: MySQL, sqlite: SQLite, mssql: MSSQL }
   const themeSlot = new Compartment()
@@ -25,6 +27,25 @@
   // Prec.highest: que el fondo y las fuentes de la app prevalezcan sobre los de One Dark.
   const themeExt = (dark: boolean) => (dark ? [oneDark, Prec.highest(base)] : [Prec.highest(base)])
 
+  // Autocompletado con el esquema de la conexión. Lee el índice más reciente sin recrear el editor.
+  let indexRef: SchemaIndex | null = null
+  $effect(() => { indexRef = index })
+  const cmType: Record<Suggestion['kind'], string> = { table: 'class', view: 'interface', schema: 'namespace', column: 'property', alias: 'variable' }
+  const WINDOW_BEFORE = 60000 // en un script enorme solo se analiza el entorno del cursor
+  const WINDOW_AFTER = 20000
+  function schemaSource(ctx: CompletionContext): CompletionResult | null {
+    const doc = ctx.state.doc
+    const lo = Math.max(0, ctx.pos - WINDOW_BEFORE)
+    const text = doc.sliceString(lo, Math.min(doc.length, ctx.pos + WINDOW_AFTER))
+    const r = complete(text, ctx.pos - lo, indexRef, driver, ctx.explicit)
+    if (!r) return null
+    return {
+      from: r.from + lo,
+      options: r.options.map((o) => ({ label: o.label, apply: o.apply, type: cmType[o.kind], detail: o.detail, boost: o.boost })),
+      validFor: /^[\w$]*$/,
+    }
+  }
+
   // Ctrl/Cmd+Enter ejecuta la selección, o todo el texto si no hay selección.
   const run = (v: EditorView) => {
     const sel = v.state.selection.main
@@ -41,6 +62,8 @@
           basicSetup,
           themeSlot.of(themeExt(theme.resolved === 'dark')),
           sql({ dialect: dialects[driver] ?? PostgreSQL, upperCaseKeywords: true }),
+          // Se suma a las palabras clave que ya ofrece el lenguaje SQL.
+          EditorState.languageData.of(() => [{ autocomplete: schemaSource }]),
           Prec.highest(keymap.of([{ key: 'Mod-Enter', run }])),
           EditorView.updateListener.of((u) => { if (u.docChanged) value = u.state.doc.toString() }),
         ],

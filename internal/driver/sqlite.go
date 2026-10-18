@@ -152,6 +152,19 @@ func (sqlite) PageSQL(from, where, order string, limit, offset int) (string, int
 	return limitOffsetSQL(from, where, order, limit, offset)
 }
 
+func (sqlite) ListAllColumns(ctx context.Context, db *sql.DB) ([]ColumnRef, error) {
+	// pragma_table_info(...) como función de tabla: una sola consulta en vez de un PRAGMA por tabla.
+	rows, err := db.QueryContext(ctx, `
+		SELECT '', m.name, m.type, p.name, p.type
+		FROM sqlite_master m JOIN pragma_table_info(m.name) p
+		WHERE m.type IN ('table','view') AND m.name NOT LIKE 'sqlite\_%' ESCAPE '\'
+		ORDER BY m.name, p.cid`)
+	if err != nil {
+		return nil, err
+	}
+	return scanColumnRefs(rows, maxAllColumns)
+}
+
 func (sqlite) ListForeignKeys(ctx context.Context, db *sql.DB, _, table string) ([]ForeignKeyInfo, error) {
 	rows, err := db.QueryContext(ctx, fmt.Sprintf("PRAGMA foreign_key_list(%s)", quoteIdent(table)))
 	if err != nil {

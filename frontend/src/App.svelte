@@ -29,6 +29,9 @@
 
   ws.loadProfiles()
 
+  // Carga el índice de autocompletado de la base de datos de la pestaña de consulta activa.
+  $effect(() => { if (ws.queryTab) void ws.ensureIndex(ws.queryTab.database) })
+
   // Guarda borradores de las pestañas y la disposición con un pequeño retardo.
   $effect(() => {
     void ws.signature
@@ -107,7 +110,7 @@
         <div class="work">
           <div class="editor" style:height="{editorPct}%">
             {#key q.id}
-              <QueryEditor bind:value={q.sql} driver={ws.active.driver} onrun={(text) => ws.run(text)} />
+              <QueryEditor bind:value={q.sql} driver={ws.active.driver} index={ws.indexFor(q.database)} onrun={(text) => ws.run(text)} />
             {/key}
           </div>
           <div class="hsplit" role="separator" aria-orientation="horizontal" aria-label="Redimensionar editor" onpointerdown={(e) => drag(e, 'y')}></div>

@@ -150,6 +150,19 @@ func (mssql) PageSQL(from, where, order string, limit, offset int) (string, int)
 		order, from, where, offset, offset+limit), 1
 }
 
+func (mssql) ListAllColumns(ctx context.Context, db *sql.DB) ([]ColumnRef, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT c.table_schema, c.table_name, t.table_type, c.column_name, c.data_type
+		FROM information_schema.columns c
+		JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+		WHERE c.table_schema NOT IN ('sys','INFORMATION_SCHEMA','guest')
+		ORDER BY c.table_schema, c.table_name, c.ordinal_position`)
+	if err != nil {
+		return nil, err
+	}
+	return scanColumnRefs(rows, maxAllColumns)
+}
+
 func (mssql) ListForeignKeys(ctx context.Context, db *sql.DB, schema, table string) ([]ForeignKeyInfo, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT fk.name, pc.name, rs.name, rt.name, rc.name, fk.update_referential_action_desc, fk.delete_referential_action_desc

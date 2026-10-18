@@ -10,6 +10,10 @@ export function Databases(arg1) {
   return window['go']['service']['SchemaService']['Databases'](arg1);
 }
 
+export function Index(arg1, arg2) {
+  return window['go']['service']['SchemaService']['Index'](arg1, arg2);
+}
+
 export function Indexes(arg1, arg2, arg3, arg4) {
   return window['go']['service']['SchemaService']['Indexes'](arg1, arg2, arg3, arg4);
 }

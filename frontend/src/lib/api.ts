@@ -49,6 +49,7 @@ export const api = {
   testConnection: Conn.Test,
   databases: list(Schema.Databases),
   schemas: list(Schema.Schemas),
+  schemaIndex: Schema.Index,
   tables: list(Schema.Tables),
   columns: list(Schema.Columns),
   indexes: list(Schema.Indexes),

@@ -604,3 +604,60 @@ func TestIntegrationExportImportRoundtrip(t *testing.T) {
 		})
 	}
 }
+
+// El índice de autocompletado debe traer tablas, vistas y columnas en orden, sin objetos del sistema.
+func TestIntegrationListAllColumns(t *testing.T) {
+	cases := []struct {
+		name, schema string
+		p            config.ConnectionProfile
+		setup        []string
+	}{
+		{"postgres", "public", config.ConnectionProfile{Driver: "postgres", Host: "127.0.0.1", Port: 15432, User: "pluton", Database: "pluton", SSLMode: "disable"},
+			[]string{`CREATE TABLE ac_t (id int, nombre text, activo boolean)`, `CREATE VIEW ac_v AS SELECT id FROM ac_t`}},
+		{"mysql", "", config.ConnectionProfile{Driver: "mysql", Host: "127.0.0.1", Port: 13306, User: "pluton", Database: "pluton"},
+			[]string{`CREATE TABLE ac_t (id INT, nombre VARCHAR(20), activo TINYINT(1))`, `CREATE VIEW ac_v AS SELECT id FROM ac_t`}},
+		{"mssql", "dbo", config.ConnectionProfile{Driver: "mssql", Host: "127.0.0.1", Port: 11433, User: "sa", Database: "master"},
+			[]string{`CREATE TABLE ac_t (id INT, nombre NVARCHAR(20), activo BIT)`, `CREATE VIEW ac_v AS SELECT id FROM ac_t`}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			db, d := openOrSkip(t, ctx, tc.name, tc.p)
+			defer db.Close()
+			db.Exec(`DROP VIEW IF EXISTS ac_v`)
+			db.Exec(`DROP TABLE IF EXISTS ac_t`)
+			defer db.Exec(`DROP TABLE IF EXISTS ac_t`)
+			defer db.Exec(`DROP VIEW IF EXISTS ac_v`)
+			for _, q := range tc.setup {
+				if _, err := db.Exec(q); err != nil {
+					t.Fatal(err)
+				}
+			}
+			refs, err := d.ListAllColumns(ctx, db)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var tCols []string
+			var viewSeen, tableSeen bool
+			for _, r := range refs {
+				switch r.Table {
+				case "ac_t":
+					tableSeen = !r.IsView
+					tCols = append(tCols, r.Column)
+					if r.Schema != tc.schema {
+						t.Errorf("esquema = %q, quería %q", r.Schema, tc.schema)
+					}
+				case "ac_v":
+					viewSeen = r.IsView
+				}
+				if r.Schema == "information_schema" || r.Schema == "pg_catalog" || r.Schema == "sys" || r.Schema == "INFORMATION_SCHEMA" {
+					t.Errorf("objeto del sistema en el índice: %+v", r)
+				}
+			}
+			if !tableSeen || !viewSeen || strings.Join(tCols, ",") != "id,nombre,activo" {
+				t.Errorf("tabla=%v vista=%v columnas=%v", tableSeen, viewSeen, tCols)
+			}
+		})
+	}
+}

@@ -33,6 +33,37 @@ type IndexInfo struct {
 	Primary bool     `json:"primary"`
 }
 
+// ColumnRef sitúa una columna dentro de su tabla y esquema.
+type ColumnRef struct {
+	Schema   string `json:"schema"` // "" en MySQL y SQLite, que no tienen nivel de esquema
+	Table    string `json:"table"`
+	IsView   bool   `json:"isView"`
+	Column   string `json:"column"`
+	DataType string `json:"dataType"`
+}
+
+// scanColumnRefs lee filas (esquema, tabla, tipo de objeto, columna, tipo de dato).
+func scanColumnRefs(rows *sql.Rows, limit int) ([]ColumnRef, error) {
+	defer rows.Close()
+	var out []ColumnRef
+	for rows.Next() {
+		var c ColumnRef
+		var kind string
+		if err := rows.Scan(&c.Schema, &c.Table, &kind, &c.Column, &c.DataType); err != nil {
+			return nil, err
+		}
+		c.IsView = strings.EqualFold(kind, "VIEW")
+		out = append(out, c)
+		if limit > 0 && len(out) >= limit {
+			break // base enorme: el autocompletado se conforma con una parte
+		}
+	}
+	return out, rows.Err()
+}
+
+// maxAllColumns acota el índice de autocompletado en bases con decenas de miles de columnas.
+const maxAllColumns = 100000
+
 // ForeignKeyInfo describe una clave foránea saliente de una tabla.
 type ForeignKeyInfo struct {
 	Name       string   `json:"name"`
@@ -61,6 +92,9 @@ type Dialect interface {
 	ListColumns(ctx context.Context, db *sql.DB, schema, table string) ([]ColumnInfo, error)
 	ListIndexes(ctx context.Context, db *sql.DB, schema, table string) ([]IndexInfo, error)
 
+	// ListAllColumns devuelve todas las columnas de todas las tablas y vistas de la base conectada en una
+	// sola consulta (para el autocompletado), ordenadas por esquema, tabla y posición.
+	ListAllColumns(ctx context.Context, db *sql.DB) ([]ColumnRef, error)
 	ListForeignKeys(ctx context.Context, db *sql.DB, schema, table string) ([]ForeignKeyInfo, error)
 	// TableDDL devuelve el SQL que crea la tabla o vista (con sus índices y claves).
 	TableDDL(ctx context.Context, db *sql.DB, schema, table string, isView bool) (string, error)

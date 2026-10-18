@@ -162,6 +162,20 @@ func (postgres) PageSQL(from, where, order string, limit, offset int) (string, i
 	return limitOffsetSQL(from, where, order, limit, offset)
 }
 
+func (postgres) ListAllColumns(ctx context.Context, db *sql.DB) ([]ColumnRef, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT c.table_schema, c.table_name, t.table_type, c.column_name, c.data_type
+		FROM information_schema.columns c
+		JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+		WHERE c.table_schema NOT IN ('information_schema','pg_catalog','pg_toast')
+		  AND c.table_schema NOT LIKE 'pg\_temp\_%' AND c.table_schema NOT LIKE 'pg\_toast\_temp\_%'
+		ORDER BY c.table_schema, c.table_name, c.ordinal_position`)
+	if err != nil {
+		return nil, err
+	}
+	return scanColumnRefs(rows, maxAllColumns)
+}
+
 func (postgres) ListForeignKeys(ctx context.Context, db *sql.DB, schema, table string) ([]ForeignKeyInfo, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT con.conname, ra.attname, rn.nspname, rc.relname, fa.attname, con.confupdtype, con.confdeltype

@@ -439,6 +439,20 @@ export namespace service {
 	        this.cancelled = source["cancelled"];
 	    }
 	}
+	export class IndexColumn {
+	    name: string;
+	    type: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new IndexColumn(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.type = source["type"];
+	    }
+	}
 	export class IndexDef {
 	    name: string;
 	    columns: string[];
@@ -454,6 +468,42 @@ export namespace service {
 	        this.columns = source["columns"];
 	        this.unique = source["unique"];
 	    }
+	}
+	export class IndexTable {
+	    schema: string;
+	    name: string;
+	    isView: boolean;
+	    columns: IndexColumn[];
+	
+	    static createFrom(source: any = {}) {
+	        return new IndexTable(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.schema = source["schema"];
+	        this.name = source["name"];
+	        this.isView = source["isView"];
+	        this.columns = this.convertValues(source["columns"], IndexColumn);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class PageRequest {
 	    table: TableRef;
@@ -534,6 +584,38 @@ export namespace service {
 	        this.content = source["content"];
 	        this.crlf = source["crlf"];
 	    }
+	}
+	export class SchemaIndex {
+	    tables: IndexTable[];
+	    defaultSchema: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SchemaIndex(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.tables = this.convertValues(source["tables"], IndexTable);
+	        this.defaultSchema = source["defaultSchema"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class SchemaOp {
 	    kind: string;

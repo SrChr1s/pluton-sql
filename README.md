@@ -94,7 +94,8 @@ make dev
 12. **Importar CSV:** el botón *Importar* de una tabla abre un asistente con vista previa, detección del separador y mapeo de columnas (por nombre o por posición). Todo va en **una transacción**: si falla una fila, se indica cuál y no se inserta ninguna; cancelar también lo revierte. En columnas que no son de texto el valor vacío se importa como `NULL`.
     - Los valores binarios se exportan como texto si son UTF-8 válido y en hexadecimal si no.
     - Un CSV abierto en una hoja de cálculo puede interpretar como fórmula una celda que empiece por `=`, `+`, `-` o `@`: no abras con Excel archivos exportados de datos que no controlas.
-13. Edita una conexión con **✎** o doble clic, y elimínala con **✕**.
+13. **Autocompletado:** el editor sugiere tablas, vistas y columnas de la conexión mientras escribes (o con `Ctrl+Espacio`), y entiende el contexto: tras `FROM`/`JOIN`/`INTO`/`UPDATE` ofrece tablas (las de otros esquemas cualificadas), tras `alias.` las columnas de esa tabla —aunque el alias se declare después, en el `FROM`—, y en el resto las columnas de las tablas de la consulta, indicando de cuál es cada una. Cita los nombres que lo necesitan (mayúsculas en PostgreSQL, espacios, palabras reservadas) con las comillas de cada motor. No sugiere dentro de cadenas ni comentarios. El índice se carga una vez por base de datos y se actualiza al cambiar la estructura, al ejecutar un `CREATE`/`ALTER`/`DROP` o con *Recargar esquema*. No entiende subconsultas ni CTE: ahí simplemente no sugiere.
+14. Edita una conexión con **✎** o doble clic, y elimínala con **✕**.
 
 Los resultados de una consulta se limitan a 1000 filas; la barra inferior avisa si se truncaron.
 
@@ -116,6 +117,7 @@ En el formulario de conexión, el selector **Versión mínima de TLS** permite n
 
 ```bash
 make test                       # tests del backend (con el parche TLS)
+make test-frontend              # tests del autocompletado (vitest)
 make test-integration           # además, contra PostgreSQL y MariaDB reales (requiere Docker)
 docker compose --profile mssql up -d --wait   # opcional: SQL Server, que activa sus casos en los tests de integración
 cd frontend && npm run check    # comprobación de tipos del frontend

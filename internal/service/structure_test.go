@@ -1,6 +1,7 @@
 package service
 
 import (
+	"github.com/SrChr1s/pluton-sql/internal/driver"
 	"strings"
 	"testing"
 )
@@ -70,5 +71,30 @@ func TestDescribeSQLite(t *testing.T) {
 	}
 	if _, err := svc.Describe(ref("no_existe")); err == nil {
 		t.Error("una tabla inexistente debe dar error")
+	}
+}
+
+func TestGroupIndex(t *testing.T) {
+	refs := []driver.ColumnRef{
+		{Schema: "public", Table: "a", Column: "id", DataType: "integer"},
+		{Schema: "public", Table: "a", Column: "x", DataType: "text"},
+		{Schema: "public", Table: "v", IsView: true, Column: "id", DataType: "integer"},
+		{Schema: "ventas", Table: "a", Column: "total", DataType: "numeric"}, // mismo nombre, otro esquema
+	}
+	idx := groupIndex("postgres", refs)
+	if idx.DefaultSchema != "public" || len(idx.Tables) != 3 {
+		t.Fatalf("%+v", idx)
+	}
+	if a := idx.Tables[0]; a.Name != "a" || len(a.Columns) != 2 || a.Columns[1].Name != "x" || a.IsView {
+		t.Errorf("tabla a: %+v", a)
+	}
+	if !idx.Tables[1].IsView || idx.Tables[2].Schema != "ventas" || len(idx.Tables[2].Columns) != 1 {
+		t.Errorf("vista y homónima en otro esquema deben ser tablas distintas: %+v", idx.Tables)
+	}
+	if groupIndex("mysql", nil).DefaultSchema != "" || groupIndex("mssql", nil).DefaultSchema != "dbo" {
+		t.Error("esquema por defecto de cada motor")
+	}
+	if e := groupIndex("sqlite", nil); e.Tables == nil || len(e.Tables) != 0 {
+		t.Error("sin tablas debe ser [] y no null para el frontend")
 	}
 }
