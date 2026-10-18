@@ -13,18 +13,22 @@ export type QueryResult = service.QueryResult
 export const emptyProfile = (): Profile =>
   ({ id: '', name: '', driver: 'postgres', host: 'localhost', port: 5432, user: '', database: '', filePath: '', sslMode: '', tlsMinVersion: '' }) as Profile
 
+// Go serializa un slice nil como null: las listas se normalizan a [] en un solo punto.
+const list = <A extends unknown[], T>(fn: (...a: A) => Promise<T[] | null>) =>
+  (...a: A): Promise<T[]> => fn(...a).then((v) => v ?? [])
+
 export const api = {
-  drivers: Conn.Drivers,
+  drivers: list(Conn.Drivers),
   defaultPort: Conn.DefaultPort,
-  listConnections: Conn.List,
+  listConnections: list(Conn.List),
   saveConnection: Conn.Save,
   deleteConnection: Conn.Delete,
   testConnection: Conn.Test,
-  databases: Schema.Databases,
-  schemas: Schema.Schemas,
-  tables: Schema.Tables,
-  columns: Schema.Columns,
-  indexes: Schema.Indexes,
+  databases: list(Schema.Databases),
+  schemas: list(Schema.Schemas),
+  tables: list(Schema.Tables),
+  columns: list(Schema.Columns),
+  indexes: list(Schema.Indexes),
   execute: Query.Execute,
   cancel: Query.Cancel,
   pickSQLiteFile: Dialogs.PickSQLiteFile,

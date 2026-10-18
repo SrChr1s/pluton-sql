@@ -1,0 +1,37 @@
+<script lang="ts">
+  // Iconos de trazo (estilo Lucide). Cada valor son uno o varios paths del viewBox 24x24.
+  const icons: Record<string, string[]> = {
+    plus: ['M12 5v14', 'M5 12h14'],
+    x: ['M18 6 6 18', 'M6 6l12 12'],
+    play: ['M7 4l13 8-13 8z'],
+    stop: ['M6 6h12v12H6z'],
+    database: ['M3 5c0-1.1 4-2 9-2s9 .9 9 2-4 2-9 2-9-.9-9-2z', 'M3 5v14c0 1.1 4 2 9 2s9-.9 9-2V5', 'M3 12c0 1.1 4 2 9 2s9-.9 9-2'],
+    table: ['M3 3h18v18H3z', 'M3 9h18', 'M3 15h18', 'M9 3v18'],
+    view: ['M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z', 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z'],
+    layers: ['M12 2 2 7l10 5 10-5-10-5z', 'M2 17l10 5 10-5', 'M2 12l10 5 10-5'],
+    right: ['M9 6l6 6-6 6'],
+    down: ['M6 9l6 6 6-6'],
+    sun: ['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M12 2v2', 'M12 20v2', 'M4.9 4.9l1.4 1.4', 'M17.7 17.7l1.4 1.4', 'M2 12h2', 'M20 12h2', 'M4.9 19.1l1.4-1.4', 'M17.7 6.3l1.4-1.4'],
+    moon: ['M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'],
+    monitor: ['M3 4h18v12H3z', 'M8 20h8', 'M12 16v4'],
+    pencil: ['M12 20h9', 'M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z'],
+    trash: ['M3 6h18', 'M8 6V4h8v2', 'M19 6l-1 14H6L5 6'],
+    refresh: ['M21 12a9 9 0 1 1-3-6.7L21 8', 'M21 3v5h-5'],
+    search: ['M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14z', 'M21 21l-4.3-4.3'],
+    server: ['M4 4h16v6H4z', 'M4 14h16v6H4z', 'M8 7h.01', 'M8 17h.01'],
+    key: ['M15 7a4 4 0 1 1-1.2 2.8L3 20v-3h3v-3h3l1.8-1.8A4 4 0 0 1 15 7z'],
+    sidebar: ['M3 4h18v16H3z', 'M9 4v16'],
+    sql: ['M8 6 3 12l5 6', 'M16 6l5 6-5 6'],
+  }
+  let { name, size = 16 }: { name: string; size?: number } = $props()
+  const fill = $derived(name === 'play' || name === 'stop')
+</script>
+
+<svg width={size} height={size} viewBox="0 0 24 24" fill={fill ? 'currentColor' : 'none'} stroke="currentColor"
+     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  {#each icons[name] ?? [] as d}<path {d} />{/each}
+</svg>
+
+<style>
+  svg { flex: none; display: block; }
+</style>

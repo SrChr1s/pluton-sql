@@ -40,6 +40,8 @@
   }
 </script>
 
+<svelte:window onkeydown={(e) => e.key === 'Escape' && oncancel()} />
+
 <div class="overlay">
   <form class="modal" onsubmit={(e) => { e.preventDefault(); save() }}>
     <h3>{profile ? 'Editar conexión' : 'Nueva conexión'}</h3>
@@ -101,8 +103,8 @@
 </div>
 
 <style>
-  .overlay { position: fixed; inset: 0; background: #0009; display: grid; place-items: center; z-index: 10; }
-  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 18px; width: 440px; display: flex; flex-direction: column; gap: 10px; }
+  .overlay { position: fixed; inset: 0; background: #0008; display: grid; place-items: center; z-index: 10; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); max-height: 92vh; overflow: auto; padding: 18px; width: 440px; display: flex; flex-direction: column; gap: 10px; }
   h3 { margin: 0 0 4px; }
   label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); flex: 1; }
   .row { display: flex; gap: 10px; }
@@ -111,5 +113,5 @@
   .actions { display: flex; gap: 8px; margin-top: 6px; }
   .status { margin: 0; color: var(--danger); word-break: break-word; }
   .status.ok { color: var(--ok); }
-  .warn { margin: 0; color: #e0b050; font-size: 12px; }
+  .warn { margin: 0; color: var(--warn); font-size: 12px; }
 </style>

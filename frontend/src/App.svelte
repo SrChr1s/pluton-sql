@@ -1,136 +1,129 @@
 <script lang="ts">
-  import { api, errMsg, type Profile, type QueryResult } from './lib/api'
-  import ConnectionForm from './components/ConnectionForm.svelte'
-  import SchemaTree from './components/SchemaTree.svelte'
+  import Icon from './components/Icon.svelte'
+  import Sidebar from './components/Sidebar.svelte'
+  import TabBar from './components/TabBar.svelte'
+  import StatusBar from './components/StatusBar.svelte'
   import QueryEditor from './components/QueryEditor.svelte'
   import ResultGrid from './components/ResultGrid.svelte'
+  import ConnectionForm from './components/ConnectionForm.svelte'
+  import ConfirmDialog from './components/ConfirmDialog.svelte'
+  import { ws } from './lib/workspace.svelte'
+  import type { Profile } from './lib/api'
 
-  let profiles = $state<Profile[]>([])
-  let active = $state<Profile | null>(null)
-  let database = $state('')
+  const LAYOUT = 'pluton.layout'
+  const saved = (() => { try { return JSON.parse(localStorage.getItem(LAYOUT) ?? '{}') } catch { return {} } })()
+
   let form = $state<{ profile: Profile | null } | null>(null)
-  let sqlText = $state('SELECT 1;')
-  let result = $state<QueryResult | null>(null)
-  let error = $state('')
-  let running = $state(false)
-  let queryId = ''
-  let editorPct = $state(40)
+  let sidebarW = $state<number>(saved.sidebarW ?? 280)
+  let sidebarOpen = $state<boolean>(saved.sidebarOpen ?? true)
+  let editorPct = $state<number>(saved.editorPct ?? 42)
 
-  const load = async () => (profiles = await api.listConnections())
-  load()
+  ws.loadProfiles()
 
-  const connect = (p: Profile) => { active = p; database = ''; result = null; error = '' }
+  // Guarda borradores de las pestañas y la disposición con un pequeño retardo.
+  $effect(() => {
+    void ws.signature
+    const h = setTimeout(() => ws.persist(), 400)
+    return () => clearTimeout(h)
+  })
+  $effect(() => {
+    const layout = JSON.stringify({ sidebarW, sidebarOpen, editorPct })
+    const h = setTimeout(() => { try { localStorage.setItem(LAYOUT, layout) } catch { /* no crítico */ } }, 300)
+    return () => clearTimeout(h)
+  })
 
-  async function remove(p: Profile) {
-    if (!confirm(`¿Eliminar la conexión "${p.name}"?`)) return
-    await api.deleteConnection(p.id)
-    if (active?.id === p.id) active = null
-    load()
+  function onkeydown(e: KeyboardEvent) {
+    const mod = e.ctrlKey || e.metaKey
+    const k = e.key.toLowerCase()
+    if (form) return
+    if (mod && k === 't') { e.preventDefault(); ws.newTab() }
+    else if (mod && k === 'w') { e.preventDefault(); if (ws.tab) ws.close(ws.tab.id) }
+    else if (mod && k === 'b') { e.preventDefault(); sidebarOpen = !sidebarOpen }
+    else if (mod && (e.key === 'PageDown' || (e.key === 'Tab' && !e.shiftKey))) { e.preventDefault(); ws.step(1) }
+    else if (mod && (e.key === 'PageUp' || (e.key === 'Tab' && e.shiftKey))) { e.preventDefault(); ws.step(-1) }
+    else if (e.altKey && /^[1-9]$/.test(e.key)) { e.preventDefault(); ws.selectNth(Number(e.key) - 1) }
+    else if (e.key === 'F5') { e.preventDefault(); ws.run() }
+    else if (mod && e.key === '.') { e.preventDefault(); ws.cancel() }
   }
 
-  async function run(text: string) {
-    if (!active || !text.trim() || running) return
-    running = true; error = ''
-    queryId = crypto.randomUUID()
-    try { result = await api.execute(queryId, active.id, database, text) }
-    catch (e) { error = errMsg(e); result = null }
-    running = false
-  }
-  const cancel = () => api.cancel(queryId)
-
-  const quote = (s: string) => (active?.driver === 'mysql' ? '`' + s + '`' : active?.driver === 'mssql' ? `[${s}]` : `"${s}"`)
-  function openTable(db: string, schema: string, table: string) {
-    database = db
-    sqlText = `SELECT * FROM ${schema ? quote(schema) + '.' : ''}${quote(table)}${active?.driver === 'mssql' ? '' : ' LIMIT 100'};`
-    if (active?.driver === 'mssql') sqlText = sqlText.replace('SELECT', 'SELECT TOP 100')
-    run(sqlText)
-  }
-
-  function drag(e: PointerEvent) {
-    const main = (e.currentTarget as HTMLElement).parentElement!
+  function drag(e: PointerEvent, axis: 'x' | 'y') {
+    e.preventDefault()
+    const target = e.currentTarget as HTMLElement
+    const area = (axis === 'x' ? target.parentElement : target.parentElement!)!.getBoundingClientRect()
     const move = (ev: PointerEvent) => {
-      const r = main.getBoundingClientRect()
-      editorPct = Math.min(80, Math.max(15, ((ev.clientY - r.top) / r.height) * 100))
+      if (axis === 'x') sidebarW = Math.round(Math.min(520, Math.max(200, ev.clientX - area.left)))
+      else editorPct = Math.min(80, Math.max(15, ((ev.clientY - area.top) / area.height) * 100))
     }
-    const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up) }
-    addEventListener('pointermove', move); addEventListener('pointerup', up)
+    const up = () => { removeEventListener('pointermove', move); removeEventListener('pointerup', up); document.body.style.cursor = '' }
+    document.body.style.cursor = axis === 'x' ? 'col-resize' : 'row-resize'
+    addEventListener('pointermove', move)
+    addEventListener('pointerup', up)
   }
 </script>
 
-<div class="app">
-  <aside>
-    <header>
-      <b>Conexiones</b>
-      <button onclick={() => (form = { profile: null })} title="Nueva conexión">＋</button>
-    </header>
-    <div class="list">
-      {#each profiles as p (p.id)}
-        <div class="conn" class:sel={active?.id === p.id} onclick={() => connect(p)} ondblclick={() => (form = { profile: p })}
-             role="button" tabindex="0" onkeydown={(e) => e.key === 'Enter' && connect(p)}>
-          <span class="badge">{p.driver}</span>
-          <span class="name">{p.name}</span>
-          <button class="x" title="Editar" onclick={(e) => { e.stopPropagation(); form = { profile: p } }}>✎</button>
-          <button class="x danger" title="Eliminar" onclick={(e) => { e.stopPropagation(); remove(p) }}>✕</button>
-        </div>
-      {:else}
-        <p class="hint">Sin conexiones. Pulsa ＋ para crear una.</p>
-      {/each}
-    </div>
-    {#if active}
-      <header><b>{active.name}</b></header>
-      <div class="treebox">
-        {#key active.id}
-          <SchemaTree profile={active} onopen={(d) => (database = d)} ontable={openTable} />
-        {/key}
-      </div>
-    {/if}
-  </aside>
+<svelte:window {onkeydown} />
+
+<div class="app" style:grid-template-columns={sidebarOpen ? `${sidebarW}px 5px 1fr` : '1fr'}>
+  {#if sidebarOpen}
+    <Sidebar onnew={() => (form = { profile: null })} onedit={(p) => (form = { profile: p })} />
+    <div class="vsplit" role="separator" aria-orientation="vertical" aria-label="Redimensionar panel lateral" onpointerdown={(e) => drag(e, 'x')}></div>
+  {/if}
 
   <main>
-    {#if active}
+    {#if ws.active && ws.tab}
+      <TabBar />
       <div class="toolbar">
-        <button class="primary" onclick={() => run(sqlText)} disabled={running}>▶ Ejecutar</button>
-        <button onclick={cancel} disabled={!running}>■ Cancelar</button>
-        <span class="ctx">{active.name}{database ? ` › ${database}` : ''}</span>
-        <span class="hint">Ctrl+Enter ejecuta la selección o todo</span>
+        <button class="ghost icon" title="Mostrar/ocultar panel lateral (Ctrl+B)" aria-label="Panel lateral" onclick={() => (sidebarOpen = !sidebarOpen)}><Icon name="sidebar" size={16} /></button>
+        <button class="primary" onclick={() => ws.run()} disabled={ws.tab?.running || !ws.tab?.sql.trim()}>
+          <Icon name="play" size={12} /> Ejecutar
+        </button>
+        <button onclick={() => ws.cancel()} disabled={!ws.tab?.running}><Icon name="stop" size={12} /> Cancelar</button>
+        <span class="grow"></span>
+        <span class="keys"><kbd>Ctrl</kbd>+<kbd>Enter</kbd> ejecuta la selección o todo</span>
       </div>
-      <div class="editor" style:height="{editorPct}%">
-        <QueryEditor bind:value={sqlText} driver={active.driver} onrun={run} />
+      <div class="work">
+        <div class="editor" style:height="{editorPct}%">
+          {#key ws.tab.id}
+            <QueryEditor bind:value={ws.tab.sql} driver={ws.active.driver} onrun={(q) => ws.run(q)} />
+          {/key}
+        </div>
+        <div class="hsplit" role="separator" aria-orientation="horizontal" aria-label="Redimensionar editor" onpointerdown={(e) => drag(e, 'y')}></div>
+        <div class="results"><ResultGrid result={ws.tab.result} error={ws.tab.error} running={ws.tab.running} /></div>
       </div>
-      <div class="split" onpointerdown={drag} role="separator" aria-orientation="horizontal"></div>
-      <div class="results"><ResultGrid {result} {error} {running} /></div>
     {:else}
-      <div class="empty">Selecciona o crea una conexión para empezar.</div>
+      <div class="welcome">
+        <Icon name="database" size={40} />
+        <h1>Pluton SQL</h1>
+        <p>{ws.profiles.length ? 'Elige una conexión en el panel lateral para empezar.' : 'Crea tu primera conexión a PostgreSQL, MySQL, SQLite o SQL Server.'}</p>
+        <button class="primary" onclick={() => (form = { profile: null })}><Icon name="plus" size={14} /> Nueva conexión</button>
+      </div>
     {/if}
   </main>
+
+  <div class="status"><StatusBar /></div>
 </div>
 
 {#if form}
   <ConnectionForm profile={form.profile} oncancel={() => (form = null)}
-    onsaved={async (p) => { form = null; await load(); if (active?.id === p.id || !active) connect(p) }} />
+    onsaved={async (p) => { form = null; await ws.loadProfiles(); if (ws.active?.id === p.id || !ws.active) ws.connect(p) }} />
 {/if}
+<ConfirmDialog />
 
 <style>
-  .app { display: grid; grid-template-columns: 280px 1fr; height: 100%; }
-  aside { background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
-  header { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--border); }
-  .list { max-height: 35%; overflow: auto; padding: 4px 0; border-bottom: 1px solid var(--border); }
-  .conn { display: flex; align-items: center; gap: 6px; padding: 5px 10px; cursor: pointer; }
-  .conn:hover, .conn.sel { background: var(--panel2); }
-  .conn.sel { box-shadow: inset 2px 0 var(--accent); }
-  .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .badge { font-size: 10px; text-transform: uppercase; color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: 0 4px; }
-  .x { border: none; background: none; padding: 0 3px; color: var(--muted); visibility: hidden; }
-  .conn:hover .x { visibility: visible; }
-  .treebox { flex: 1; overflow: auto; padding: 4px 0; }
-  main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-  .toolbar { display: flex; gap: 8px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--panel); }
-  .ctx { color: var(--accent); margin-left: 8px; }
-  .hint { color: var(--muted); font-size: 12px; margin: 6px 10px; }
-  .toolbar .hint { margin: 0 0 0 auto; }
-  .editor { min-height: 0; }
-  .split { height: 5px; cursor: row-resize; background: var(--border); flex: none; }
-  .split:hover { background: var(--accent); }
+  .app { display: grid; grid-template-rows: 1fr 26px; height: 100%; background: var(--surface); }
+  .status { grid-column: 1 / -1; }
+  main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--surface); }
+  .vsplit { cursor: col-resize; background: transparent; margin-left: -2px; position: relative; z-index: 5; }
+  .vsplit:hover, .vsplit:active { background: var(--accent); opacity: .5; }
+  .toolbar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .grow { flex: 1; }
+  .keys { color: var(--muted); font-size: 12px; }
+  .work { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .editor { min-height: 60px; }
+  .hsplit { height: 5px; margin: -2px 0; cursor: row-resize; position: relative; z-index: 5; background: transparent; border-top: 1px solid var(--border); }
+  .hsplit:hover, .hsplit:active { background: var(--accent); opacity: .5; }
   .results { flex: 1; min-height: 0; }
-  .empty { margin: auto; color: var(--muted); }
+  .welcome { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--muted); text-align: center; padding: 24px; }
+  .welcome h1 { margin: 4px 0 0; font-size: 22px; color: var(--text); }
+  .welcome p { margin: 0 0 8px; max-width: 360px; }
 </style>
