@@ -28,11 +28,15 @@ func main() {
 	}
 
 	err = wails.Run(&options.App{
-		Title:            "Pluton SQL",
-		Width:            1280,
-		Height:           800,
-		MinWidth:         900,
-		MinHeight:        600,
+		Title:     "Pluton SQL",
+		Width:     1280,
+		Height:    800,
+		MinWidth:  900,
+		MinHeight: 600,
+		// En Linux, con 0 Wails fija el máximo al tamaño del monitor donde arrancó
+		// y la ventana no crece al moverla a otro más grande.
+		MaxWidth:         16384,
+		MaxHeight:        16384,
 		AssetServer:      &assetserver.Options{Assets: assets},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:        app.startup,
