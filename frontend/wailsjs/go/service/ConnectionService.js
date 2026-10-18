@@ -10,6 +10,10 @@ export function Delete(arg1) {
   return window['go']['service']['ConnectionService']['Delete'](arg1);
 }
 
+export function Disconnect(arg1) {
+  return window['go']['service']['ConnectionService']['Disconnect'](arg1);
+}
+
 export function Drivers() {
   return window['go']['service']['ConnectionService']['Drivers']();
 }

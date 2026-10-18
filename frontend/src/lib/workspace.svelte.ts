@@ -81,8 +81,13 @@ class Workspace {
     }
   }
 
-  disconnect() {
+  /** Cierra los pools de la conexión activa. Sus pestañas se conservan para cuando se vuelva a conectar. */
+  async disconnect() {
+    const p = this.active
+    if (!p) return
     this.active = null
+    for (const k of Object.keys(this.indexes)) if (k.startsWith(`${p.id}|`)) delete this.indexes[k]
+    await api.disconnectConnection(p.id)
   }
 
   private add<T extends Tab>(tab: T): T {

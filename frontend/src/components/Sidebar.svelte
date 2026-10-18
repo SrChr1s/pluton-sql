@@ -33,6 +33,9 @@
           <span class="badge">{p.driver}</span>
           <span class="name" title="{p.name}{p.host ? ' — ' + p.host : ''}">{p.name}</span>
           <span class="acts">
+            {#if ws.active?.id === p.id}
+              <button class="ghost icon" title="Desconectar" aria-label="Desconectar {p.name}" onclick={(e) => { e.stopPropagation(); ws.disconnect() }}><Icon name="power" size={13} /></button>
+            {/if}
             <button class="ghost icon" title="Editar" aria-label="Editar {p.name}" onclick={(e) => { e.stopPropagation(); onedit(p) }}><Icon name="pencil" size={13} /></button>
             <button class="ghost icon danger" title="Eliminar" aria-label="Eliminar {p.name}" onclick={(e) => { e.stopPropagation(); remove(p) }}><Icon name="trash" size={13} /></button>
           </span>

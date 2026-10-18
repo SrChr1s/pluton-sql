@@ -51,6 +51,12 @@ func (s *ConnectionService) Save(p config.ConnectionProfile, password string) (c
 	return p, nil
 }
 
+// Disconnect cierra los pools abiertos del perfil. La siguiente operación
+// vuelve a conectar.
+func (s *ConnectionService) Disconnect(id string) {
+	s.sess.Close(id)
+}
+
 func (s *ConnectionService) Delete(id string) error {
 	s.sess.Close(id)
 	if err := secrets.Delete(id); err != nil {
