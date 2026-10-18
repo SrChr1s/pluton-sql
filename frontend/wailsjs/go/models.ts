@@ -152,6 +152,68 @@ export namespace service {
 	        this.values = source["values"];
 	    }
 	}
+	export class ColumnDef {
+	    name: string;
+	    type: string;
+	    nullable: boolean;
+	    default: string;
+	    primaryKey: boolean;
+	    autoIncrement: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ColumnDef(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.type = source["type"];
+	        this.nullable = source["nullable"];
+	        this.default = source["default"];
+	        this.primaryKey = source["primaryKey"];
+	        this.autoIncrement = source["autoIncrement"];
+	    }
+	}
+	export class FKDef {
+	    name: string;
+	    columns: string[];
+	    refSchema: string;
+	    refTable: string;
+	    refColumns: string[];
+	    onDelete: string;
+	    onUpdate: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FKDef(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.columns = source["columns"];
+	        this.refSchema = source["refSchema"];
+	        this.refTable = source["refTable"];
+	        this.refColumns = source["refColumns"];
+	        this.onDelete = source["onDelete"];
+	        this.onUpdate = source["onUpdate"];
+	    }
+	}
+	export class IndexDef {
+	    name: string;
+	    columns: string[];
+	    unique: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new IndexDef(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.columns = source["columns"];
+	        this.unique = source["unique"];
+	    }
+	}
 	export class TableRef {
 	    profile: string;
 	    database: string;
@@ -230,6 +292,66 @@ export namespace service {
 	        this.truncated = source["truncated"];
 	        this.durationMs = source["durationMs"];
 	        this.isQuery = source["isQuery"];
+	    }
+	}
+	export class SchemaOp {
+	    kind: string;
+	    target: string;
+	    newName: string;
+	    column?: ColumnDef;
+	    index?: IndexDef;
+	    fk?: FKDef;
+	    columns: ColumnDef[];
+	
+	    static createFrom(source: any = {}) {
+	        return new SchemaOp(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.target = source["target"];
+	        this.newName = source["newName"];
+	        this.column = this.convertValues(source["column"], ColumnDef);
+	        this.index = this.convertValues(source["index"], IndexDef);
+	        this.fk = this.convertValues(source["fk"], FKDef);
+	        this.columns = this.convertValues(source["columns"], ColumnDef);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class SchemaPlan {
+	    statements: string[];
+	    warnings: string[];
+	    transactional: boolean;
+	    destructive: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new SchemaPlan(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.statements = source["statements"];
+	        this.warnings = source["warnings"];
+	        this.transactional = source["transactional"];
+	        this.destructive = source["destructive"];
 	    }
 	}
 	export class TablePage {

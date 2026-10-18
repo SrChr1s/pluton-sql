@@ -308,3 +308,177 @@ func TestIntegrationStructureRoundtrip(t *testing.T) {
 		})
 	}
 }
+
+// Ciclo de vida completo de modificaciones de estructura contra motores reales.
+func TestIntegrationSchemaEditing(t *testing.T) {
+	cases := []struct {
+		name, schema string
+		p            config.ConnectionProfile
+		wantNota     string // tipo de la columna "nota" tras ampliarla a varchar(200)
+	}{
+		{"postgres", "public", config.ConnectionProfile{Driver: "postgres", Host: "127.0.0.1", Port: 15432, User: "pluton", Database: "pluton", SSLMode: "disable"}, "character varying(200)"},
+		{"mysql", "", config.ConnectionProfile{Driver: "mysql", Host: "127.0.0.1", Port: 13306, User: "pluton", Database: "pluton"}, "varchar(200)"},
+		{"mssql", "dbo", config.ConnectionProfile{Driver: "mssql", Host: "127.0.0.1", Port: 11433, User: "sa", Database: "master"}, "varchar(200)"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+			db, d := openOrSkip(t, ctx, tc.name, tc.p)
+			defer db.Close()
+			drop := func() {
+				for _, tbl := range []string{"ed_t", "ed_t2", "ed_p", "ed_a"} {
+					db.Exec("DROP TABLE IF EXISTS " + d.Quote(tbl))
+				}
+			}
+			drop()
+			defer drop()
+			pools := fakePools{db, d}
+			edit, desc := NewSchemaEditService(pools), NewStructureService(pools)
+			at := func(tbl string) TableRef { return TableRef{Profile: "p", Schema: tc.schema, Table: tbl} }
+			apply := func(tbl string, op SchemaOp) {
+				t.Helper()
+				if _, err := edit.Apply(at(tbl), op); err != nil {
+					t.Fatalf("%s %s: %v", tbl, op.Kind, err)
+				}
+			}
+			describe := func(tbl string) *TableStructure {
+				t.Helper()
+				st, err := desc.Describe(at(tbl))
+				if err != nil {
+					t.Fatalf("describe %s: %v", tbl, err)
+				}
+				return st
+			}
+			col := func(st *TableStructure, name string) (c driver.ColumnInfo, ok bool) {
+				for _, x := range st.Columns {
+					if x.Name == name {
+						return x, true
+					}
+				}
+				return
+			}
+
+			apply("ed_p", SchemaOp{Kind: "create_table", Columns: []ColumnDef{{Name: "id", Type: "int", PrimaryKey: true, AutoIncrement: true}}})
+			apply("ed_t", SchemaOp{Kind: "create_table", Columns: []ColumnDef{
+				{Name: "id", Type: "int", PrimaryKey: true, AutoIncrement: true},
+				{Name: "nombre", Type: "varchar(30)", Nullable: false},
+				{Name: "nota", Type: "varchar(100)", Nullable: true},
+			}})
+			st := describe("ed_t")
+			if id, _ := col(st, "id"); !id.PrimaryKey || !id.AutoIncrement {
+				t.Errorf("create_table: id = %+v", id)
+			}
+			db.Exec(fmt.Sprintf("INSERT INTO %s (%s) VALUES ('uno')", d.Quote("ed_t"), d.Quote("nombre")))
+
+			apply("ed_t", SchemaOp{Kind: "add_column", Column: &ColumnDef{Name: "edad", Type: "int", Nullable: false, Default: "0"}})
+			if _, ok := col(describe("ed_t"), "edad"); !ok {
+				t.Fatal("add_column: no aparece la columna")
+			}
+			apply("ed_t", SchemaOp{Kind: "alter_column", Target: "nota", Column: &ColumnDef{Type: "varchar(200)", Nullable: true}})
+			if c, _ := col(describe("ed_t"), "nota"); c.Type != tc.wantNota {
+				t.Errorf("alter_column: tipo = %q, quería %q", c.Type, tc.wantNota)
+			}
+			apply("ed_t", SchemaOp{Kind: "alter_column", Target: "edad", Column: &ColumnDef{Type: "int", Nullable: true, Default: "7"}})
+			if c, _ := col(describe("ed_t"), "edad"); !c.Nullable || !strings.Contains(c.Default, "7") {
+				t.Errorf("alter_column nulabilidad/default: %+v", c)
+			}
+			apply("ed_t", SchemaOp{Kind: "alter_column", Target: "edad", Column: &ColumnDef{Type: "int", Nullable: true}}) // quitar el default
+			if c, _ := col(describe("ed_t"), "edad"); c.Default != "" {
+				t.Errorf("quitar default: %+v", c)
+			}
+			apply("ed_t", SchemaOp{Kind: "rename_column", Target: "nota", NewName: "comentario"})
+			if _, ok := col(describe("ed_t"), "comentario"); !ok {
+				t.Error("rename_column")
+			}
+
+			apply("ed_t", SchemaOp{Kind: "create_index", Index: &IndexDef{Name: "ix_ed_t_nombre_edad", Columns: []string{"nombre", "edad"}}})
+			var found bool
+			for _, ix := range describe("ed_t").Indexes {
+				found = found || (ix.Name == "ix_ed_t_nombre_edad" && len(ix.Columns) == 2 && !ix.Unique)
+			}
+			if !found {
+				t.Errorf("create_index: %+v", describe("ed_t").Indexes)
+			}
+
+			apply("ed_t", SchemaOp{Kind: "add_column", Column: &ColumnDef{Name: "padre_id", Type: "int", Nullable: true}})
+			fk := &FKDef{Name: "fk_ed_padre", Columns: []string{"padre_id"}, RefSchema: tc.schema, RefTable: "ed_p", RefColumns: []string{"id"}, OnDelete: "SET NULL"}
+			if tc.name == "mysql" {
+				fk.RefSchema = ""
+			}
+			apply("ed_t", SchemaOp{Kind: "add_fk", FK: fk})
+			if fks := describe("ed_t").ForeignKeys; len(fks) != 1 || fks[0].Name != "fk_ed_padre" || fks[0].OnDelete != "SET NULL" || fks[0].RefTable != "ed_p" {
+				t.Errorf("add_fk: %+v", fks)
+			}
+			apply("ed_t", SchemaOp{Kind: "drop_fk", Target: "fk_ed_padre"})
+			if len(describe("ed_t").ForeignKeys) != 0 {
+				t.Error("drop_fk")
+			}
+			apply("ed_t", SchemaOp{Kind: "drop_index", Target: "ix_ed_t_nombre_edad"})
+			for _, ix := range describe("ed_t").Indexes {
+				if ix.Name == "ix_ed_t_nombre_edad" {
+					t.Error("drop_index")
+				}
+			}
+
+			// Borrar una columna con valor por defecto: SQL Server exige quitar antes la restricción.
+			apply("ed_t", SchemaOp{Kind: "add_column", Column: &ColumnDef{Name: "tmp", Type: "int", Nullable: false, Default: "1"}})
+			apply("ed_t", SchemaOp{Kind: "drop_column", Target: "tmp"})
+			if _, ok := col(describe("ed_t"), "tmp"); ok {
+				t.Error("drop_column")
+			}
+
+			apply("ed_t", SchemaOp{Kind: "rename_table", NewName: "ed_t2"})
+			if _, err := desc.Describe(at("ed_t")); err == nil {
+				t.Error("la tabla vieja no debería existir")
+			}
+			var n int
+			db.QueryRow(fmt.Sprintf("SELECT count(*) FROM %s", d.Quote("ed_t2"))).Scan(&n)
+			if n != 1 {
+				t.Errorf("los datos deben sobrevivir al renombrado: %d", n)
+			}
+			apply("ed_t2", SchemaOp{Kind: "drop_table"})
+			apply("ed_p", SchemaOp{Kind: "drop_table"})
+			if _, err := desc.Describe(at("ed_t2")); err == nil {
+				t.Error("drop_table")
+			}
+
+			// Preview no ejecuta nada y avisa de lo destructivo.
+			apply("ed_a", SchemaOp{Kind: "create_table", Columns: []ColumnDef{{Name: "n", Type: "varchar(10)", Nullable: true}}})
+			p, err := edit.Preview(at("ed_a"), SchemaOp{Kind: "drop_table"})
+			if err != nil || !p.Destructive || len(p.Warnings) == 0 {
+				t.Errorf("preview: %v %+v", err, p)
+			}
+			describe("ed_a")
+			if tc.name == "mysql" && p.Transactional {
+				t.Error("MySQL debe avisar de que no es transaccional")
+			}
+		})
+	}
+}
+
+// En PostgreSQL un ALTER de varias sentencias se revierte entero si una falla.
+func TestIntegrationSchemaEditAtomicPostgres(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	db, d := openOrSkip(t, ctx, "postgres", config.ConnectionProfile{Driver: "postgres", Host: "127.0.0.1", Port: 15432, User: "pluton", Database: "pluton", SSLMode: "disable"})
+	defer db.Close()
+	db.Exec(`DROP TABLE IF EXISTS ed_atomic`)
+	defer db.Exec(`DROP TABLE IF EXISTS ed_atomic`)
+	for _, q := range []string{`CREATE TABLE ed_atomic (n varchar(10))`, `INSERT INTO ed_atomic VALUES ('1'), (NULL)`} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pools := fakePools{db, d}
+	ref := TableRef{Profile: "p", Schema: "public", Table: "ed_atomic"}
+	// 1.ª sentencia (varchar → int) válida; 2.ª (SET NOT NULL) falla por el NULL.
+	_, err := NewSchemaEditService(pools).Apply(ref, SchemaOp{Kind: "alter_column", Target: "n", Column: &ColumnDef{Type: "int", Nullable: false}})
+	if err == nil || !strings.Contains(err.Error(), "ningún cambio") {
+		t.Fatalf("debía fallar y avisar de que no se aplicó nada: %v", err)
+	}
+	st, _ := NewStructureService(pools).Describe(ref)
+	if st.Columns[0].Type != "character varying(10)" {
+		t.Errorf("el cambio de tipo no se revirtió: %q", st.Columns[0].Type)
+	}
+}

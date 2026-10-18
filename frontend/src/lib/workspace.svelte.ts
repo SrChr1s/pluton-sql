@@ -1,5 +1,5 @@
 import { api, errMsg, type Profile, type QueryResult } from './api'
-import { TableState } from './table.svelte'
+import { TableState, type TableLocation } from './table.svelte'
 
 export type QueryTab = {
   kind: 'query'
@@ -38,6 +38,8 @@ class Workspace {
   private tabsByProfile = $state<Record<string, Tab[]>>({})
   private currentTab = $state<Record<string, string>>({})
   private counter = 0
+  /** Sube cuando cambian las tablas (crear/renombrar/borrar) para que el árbol de esquema se recargue. */
+  schemaVersion = $state(0)
 
   get tabs(): Tab[] {
     return this.active ? (this.tabsByProfile[this.active.id] ?? []) : []
@@ -169,6 +171,27 @@ class Workspace {
     const tab = this.add<DataTab>({ kind: 'table', id: crypto.randomUUID(), title: table, database, state })
     if (mode === 'structure') void tab.state.setMode('structure')
     tab.state.load()
+  }
+
+  /** Reacciona a una modificación de estructura ya aplicada. */
+  async schemaChanged(loc: TableLocation, op: { kind: string; newName?: string }) {
+    const tab = this.tabs.find(
+      (t): t is DataTab => t.kind === 'table' && t.state.loc.database === loc.database && t.state.loc.schema === loc.schema && t.state.loc.table === loc.table,
+    )
+    tab?.state.clearPending() // sus cambios pendientes ya no encajan con la nueva estructura
+    if (op.kind === 'create_table') {
+      this.schemaVersion++
+      this.openTable(loc.database, loc.schema, loc.table, 'structure')
+    } else if (op.kind === 'rename_table') {
+      this.schemaVersion++
+      if (tab) await this.close(tab.id)
+      this.openTable(loc.database, loc.schema, op.newName ?? loc.table, 'structure')
+    } else if (op.kind === 'drop_table') {
+      this.schemaVersion++
+      if (tab) await this.close(tab.id)
+    } else if (tab) {
+      await Promise.all([tab.state.load(), tab.state.loadStructure()])
+    }
   }
 
   /** Abre un SELECT de la tabla en una pestaña de consulta. */

@@ -8,6 +8,8 @@
   import TableView from './components/TableView.svelte'
   import ConnectionForm from './components/ConnectionForm.svelte'
   import ConfirmDialog from './components/ConfirmDialog.svelte'
+  import SchemaChangeDialog from './components/SchemaChangeDialog.svelte'
+  import { ui } from './lib/ui.svelte'
   import { ws } from './lib/workspace.svelte'
   import type { Profile } from './lib/api'
 
@@ -112,6 +114,13 @@
 {#if form}
   <ConnectionForm profile={form.profile} oncancel={() => (form = null)}
     onsaved={async (p) => { form = null; await ws.loadProfiles(); if (ws.active?.id === p.id || !ws.active) ws.connect(p) }} />
+{/if}
+{#if ui.schema}
+  {#key ui.schema}
+    <SchemaChangeDialog loc={ui.schema.loc} kind={ui.schema.kind} target={ui.schema.target} structure={ui.schema.structure}
+      oncancel={() => (ui.schema = null)}
+      ondone={(loc, op) => { ui.schema = null; void ws.schemaChanged(loc, op) }} />
+  {/key}
 {/if}
 <ConfirmDialog />
 

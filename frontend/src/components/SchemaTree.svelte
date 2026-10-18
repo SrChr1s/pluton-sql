@@ -2,12 +2,13 @@
   import Icon from './Icon.svelte'
   import { api, errMsg, type Profile, type Table, type Column } from '../lib/api'
 
-  let { profile, filter = '', onopen, ontable, onstructure }: {
+  let { profile, filter = '', onopen, ontable, onstructure, oncreate }: {
     profile: Profile
     filter?: string
     onopen: (database: string) => void
     ontable: (database: string, schema: string, table: string) => void
     onstructure: (database: string, schema: string, table: string) => void
+    oncreate: (database: string, schema: string) => void
   } = $props()
 
   type Node = { open: boolean; loading: boolean; error: string }
@@ -60,11 +61,12 @@
   const key = (e: KeyboardEvent, fn: () => void) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn() } }
 </script>
 
-{#snippet row(depth: number, open: boolean | null, busy: boolean, icon: string, label: string, toggleFn: () => void, dbl?: () => void, info?: () => void)}
+{#snippet row(depth: number, open: boolean | null, busy: boolean, icon: string, label: string, toggleFn: () => void, dbl?: () => void, info?: () => void, create?: () => void)}
   <div class="item" style:padding-left="{8 + depth * 14}px" role="treeitem" tabindex="0" aria-selected="false"
        aria-expanded={open === null ? undefined : open} onclick={toggleFn} ondblclick={dbl} onkeydown={(e) => key(e, toggleFn)}>
     <span class="caret">{#if busy}<span class="spin"></span>{:else if open !== null}<Icon name={open ? 'down' : 'right'} size={12} />{/if}</span>
     <Icon name={icon} size={14} /><span class="label" title={label}>{label}</span>
+    {#if create}<button class="ghost icon info" title="Nueva tabla" aria-label="Nueva tabla en {label}" onclick={(e) => { e.stopPropagation(); create() }}><Icon name="plus" size={13} /></button>{/if}
     {#if info}<button class="ghost icon info" title="Ver estructura" aria-label="Ver estructura de {label}" onclick={(e) => { e.stopPropagation(); info() }}><Icon name="layers" size={12} /></button>{/if}
   </div>
 {/snippet}
@@ -91,7 +93,7 @@
   {#if loading}<p class="empty">Cargando…</p>{/if}
   {#if error}<p class="err">{error}</p>{/if}
   {#each dbs as db (db)}
-    {@render row(0, node(db).open, node(db).loading, 'database', db, () => toggleDb(db))}
+    {@render row(0, node(db).open, node(db).loading, 'database', db, () => toggleDb(db), undefined, undefined, (schemas[db]?.length === 1 && schemas[db][0] === '') ? () => oncreate(db, '') : undefined)}
     {#if node(db).error}<p class="err">{node(db).error}</p>{/if}
     {#if node(db).open}
       {@const ss = schemas[db] ?? []}
@@ -99,7 +101,7 @@
         {@render tableRows(db, '', 1)}
       {:else}
         {#each ss as s (s)}
-          {@render row(1, node(`${db}/${s}`).open, node(`${db}/${s}`).loading, 'layers', s, () => toggleSchema(db, s))}
+          {@render row(1, node(`${db}/${s}`).open, node(`${db}/${s}`).loading, 'layers', s, () => toggleSchema(db, s), undefined, undefined, () => oncreate(db, s))}
           {#if node(`${db}/${s}`).open}{@render tableRows(db, s, 2)}{/if}
         {/each}
       {/if}

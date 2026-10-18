@@ -69,7 +69,7 @@ func (mysqlDialect) ListTables(ctx context.Context, db *sql.DB, _ string) ([]Tab
 }
 
 func (mysqlDialect) ListColumns(ctx context.Context, db *sql.DB, _, table string) ([]ColumnInfo, error) {
-	rows, err := db.QueryContext(ctx, `SELECT column_name, column_type, is_nullable='YES', COALESCE(column_default,''), column_key='PRI', extra LIKE '%auto_increment%'
+	rows, err := db.QueryContext(ctx, `SELECT column_name, column_type, is_nullable='YES', COALESCE(NULLIF(column_default,'NULL'),''), column_key='PRI', extra LIKE '%auto_increment%'
 		FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=? ORDER BY ordinal_position`, table)
 	if err != nil {
 		return nil, err

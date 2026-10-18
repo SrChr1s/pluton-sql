@@ -26,5 +26,6 @@
   h3 { margin: 0 0 6px; font-size: 15px; }
   p { margin: 0 0 14px; color: var(--muted); }
   .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
-  .danger-fill { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .danger-fill, .danger-fill:hover:not(:disabled) { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .danger-fill:hover:not(:disabled) { filter: brightness(1.1); }
 </style>

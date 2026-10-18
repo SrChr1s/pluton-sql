@@ -17,6 +17,7 @@ type App struct {
 	Query       *service.QueryService
 	Data        *service.DataService
 	Structure   *service.StructureService
+	SchemaEdit  *service.SchemaEditService
 	Dialogs     *service.DialogService
 }
 
@@ -33,6 +34,7 @@ func NewApp() (*App, error) {
 		Query:       service.NewQueryService(sess),
 		Data:        service.NewDataService(sess),
 		Structure:   service.NewStructureService(sess),
+		SchemaEdit:  service.NewSchemaEditService(sess),
 		Dialogs:     service.NewDialogService(),
 	}, nil
 }

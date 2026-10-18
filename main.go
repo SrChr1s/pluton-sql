@@ -43,6 +43,7 @@ func main() {
 			app.Query,
 			app.Data,
 			app.Structure,
+			app.SchemaEdit,
 			app.Dialogs,
 		},
 	})

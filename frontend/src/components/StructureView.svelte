@@ -2,6 +2,7 @@
   import Icon from './Icon.svelte'
   import { ws, selectFrom, type DataTab } from '../lib/workspace.svelte'
   import { copyText } from '../lib/clipboard'
+  import { ui } from '../lib/ui.svelte'
   import type { ForeignKey } from '../lib/api'
 
   let { tab }: { tab: DataTab } = $props()
@@ -26,6 +27,12 @@
     else ws.openTable(t.loc.database, fk.refSchema, fk.refTable)
   }
 
+  /** Abre el diálogo de modificación; antes, descarta (con confirmación) los cambios de datos pendientes. */
+  async function change(kind: string, target = '') {
+    if (!(await t.canDiscard('modificas la estructura'))) return
+    ui.openSchema(t.loc, kind, target, st)
+  }
+
   const ddlAsQuery = () => ws.newTab({ title: `DDL ${t.loc.table}`, sql: st?.ddl ?? '', database: t.loc.database })
   const refName = (fk: ForeignKey) => `${fk.refSchema && ws.active?.driver !== 'mysql' ? fk.refSchema + '.' : ''}${fk.refTable}`
   const hasAction = (a: string) => !!a && a !== 'NO ACTION'
@@ -35,6 +42,10 @@
   <div class="bar">
     <button class="ghost icon" title="Recargar estructura" aria-label="Recargar estructura" onclick={() => t.loadStructure()} disabled={t.structureLoading}><Icon name="refresh" size={15} /></button>
     <span class="grow"></span>
+    {#if st}
+      <button class="ghost" onclick={() => change('rename_table')}><Icon name="pencil" size={13} /> Renombrar</button>
+      <button class="ghost danger" onclick={() => change('drop_table')}><Icon name="trash" size={13} /> {st.isView ? 'Eliminar vista' : 'Eliminar tabla'}</button>
+    {/if}
     <button class="ghost" onclick={() => ws.newTab({ title: t.loc.table, database: t.loc.database, sql: selectFrom(ws.active?.driver ?? '', t.loc.schema, t.loc.table) })}><Icon name="sql" size={14} /> SELECT</button>
   </div>
 
@@ -47,9 +58,9 @@
       <div class="empty">{t.structureLoading ? 'Cargando…' : 'Sin datos'}</div>
     {:else}
       <section>
-        <h3>Columnas <span class="count">{st.columns.length}</span></h3>
+        <h3>Columnas <span class="count">{st.columns.length}</span><span class="grow"></span>{#if !st.isView}<button onclick={() => change('add_column')}><Icon name="plus" size={12} /> Columna</button>{/if}</h3>
         <table>
-          <thead><tr><th class="n">#</th><th>Nombre</th><th>Tipo</th><th>Nulo</th><th>Por defecto</th><th></th></tr></thead>
+          <thead><tr><th class="n">#</th><th>Nombre</th><th>Tipo</th><th>Nulo</th><th>Por defecto</th><th></th>{#if !st.isView}<th></th>{/if}</tr></thead>
           <tbody>
             {#each st.columns as c, i (c.name)}
               <tr>
@@ -62,6 +73,9 @@
                   {#if c.primaryKey}<span class="tag pk"><Icon name="key" size={10} /> PK</span>{/if}
                   {#if c.autoIncrement}<span class="tag">AUTO</span>{/if}
                 </td>
+                {#if !st.isView}
+                  <td class="rowacts"><button class="ghost icon" title="Modificar, renombrar o eliminar" aria-label="Editar la columna {c.name}" onclick={() => change('alter_column', c.name)}><Icon name="pencil" size={13} /></button></td>
+                {/if}
               </tr>
             {/each}
           </tbody>
@@ -70,12 +84,12 @@
 
       {#if !st.isView}
         <section>
-          <h3>Índices <span class="count">{st.indexes.length}</span></h3>
+          <h3>Índices <span class="count">{st.indexes.length}</span><span class="grow"></span><button onclick={() => change('create_index')}><Icon name="plus" size={12} /> Índice</button></h3>
           {#if st.indexes.length === 0}
             <p class="none">Sin índices.</p>
           {:else}
             <table>
-              <thead><tr><th>Nombre</th><th>Columnas</th><th></th></tr></thead>
+              <thead><tr><th>Nombre</th><th>Columnas</th><th></th><th></th></tr></thead>
               <tbody>
                 {#each st.indexes as ix (ix.name)}
                   <tr>
@@ -84,6 +98,7 @@
                     <td class="flags">
                       {#if ix.primary}<span class="tag pk">PRIMARIA</span>{:else if ix.unique}<span class="tag">ÚNICO</span>{/if}
                     </td>
+                    <td class="rowacts">{#if !ix.primary}<button class="ghost icon danger" title="Eliminar índice" aria-label="Eliminar el índice {ix.name}" onclick={() => change('drop_index', ix.name)}><Icon name="trash" size={13} /></button>{/if}</td>
                   </tr>
                 {/each}
               </tbody>
@@ -92,12 +107,12 @@
         </section>
 
         <section>
-          <h3>Claves foráneas <span class="count">{st.foreignKeys.length}</span></h3>
+          <h3>Claves foráneas <span class="count">{st.foreignKeys.length}</span><span class="grow"></span><button onclick={() => change('add_fk')} disabled={ws.active?.driver === 'sqlite'} title={ws.active?.driver === 'sqlite' ? 'SQLite no permite añadir claves foráneas a una tabla existente' : ''}><Icon name="plus" size={12} /> Clave foránea</button></h3>
           {#if st.foreignKeys.length === 0}
             <p class="none">Sin claves foráneas.</p>
           {:else}
             <table>
-              <thead><tr><th>Nombre</th><th>Columnas</th><th>Referencia</th><th>Acciones</th></tr></thead>
+              <thead><tr><th>Nombre</th><th>Columnas</th><th>Referencia</th><th>Acciones</th><th></th></tr></thead>
               <tbody>
                 {#each st.foreignKeys as fk (fk.name)}
                   <tr>
@@ -111,6 +126,7 @@
                       {#if hasAction(fk.onDelete)}<span class="tag">ON DELETE {fk.onDelete}</span>{/if}
                       {#if hasAction(fk.onUpdate)}<span class="tag">ON UPDATE {fk.onUpdate}</span>{/if}
                     </td>
+                    <td class="rowacts">{#if ws.active?.driver !== 'sqlite'}<button class="ghost icon danger" title="Eliminar clave foránea" aria-label="Eliminar la clave {fk.name}" onclick={() => change('drop_fk', fk.name)}><Icon name="trash" size={13} /></button>{/if}</td>
                   </tr>
                 {/each}
               </tbody>
@@ -155,6 +171,9 @@
   .mono { font: 12px var(--mono); }
   .dflt { color: var(--muted); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .flags, .acts { white-space: nowrap; }
+  .rowacts { width: 1%; text-align: right; padding: 2px 6px; }
+  .rowacts button { opacity: 0; padding: 3px; }
+  tr:hover .rowacts button, .rowacts button:focus-visible { opacity: 1; }
   .tag { display: inline-flex; align-items: center; gap: 3px; font: 600 10px var(--mono); background: var(--accent-soft); color: var(--accent); border-radius: 3px; padding: 1px 6px; margin-right: 4px; }
   .tag.pk { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
   .link { background: none; border: none; padding: 0; color: var(--accent); font: inherit; text-decoration: underline; text-underline-offset: 2px; }

@@ -4,6 +4,7 @@ import * as Query from '../../wailsjs/go/service/QueryService'
 import * as Dialogs from '../../wailsjs/go/service/DialogService'
 import * as Data from '../../wailsjs/go/service/DataService'
 import * as Structure from '../../wailsjs/go/service/StructureService'
+import * as SchemaEdit from '../../wailsjs/go/service/SchemaEditService'
 import type { config, driver, service } from '../../wailsjs/go/models'
 
 export type Profile = config.ConnectionProfile
@@ -16,6 +17,9 @@ export type TableRef = service.TableRef
 export type Change = service.Change
 export type PageRequest = service.PageRequest
 export type TableStructure = service.TableStructure
+export type SchemaOp = service.SchemaOp
+export type SchemaPlan = service.SchemaPlan
+export type ColumnDef = service.ColumnDef
 export type ForeignKey = driver.ForeignKeyInfo
 
 export const emptyProfile = (): Profile =>
@@ -40,6 +44,8 @@ export const api = {
   execute: Query.Execute,
   cancel: Query.Cancel,
   describeTable: Structure.Describe,
+  previewSchema: SchemaEdit.Preview,
+  applySchema: SchemaEdit.Apply,
   tablePage: Data.Page,
   tableCount: Data.Count,
   applyChanges: Data.Apply,

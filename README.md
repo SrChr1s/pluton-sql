@@ -85,8 +85,10 @@ make dev
    Nada se escribe hasta pulsar **Aplicar** (`Ctrl+S`): todos los cambios van en **una sola transacción**, y si uno falla no se aplica ninguno. **Descartar** los deshace. Al cambiar de página, orden o filtro, o al cerrar la pestaña con cambios pendientes, pide confirmación.
    Las vistas son de solo lectura. Si una tabla no tiene clave primaria, las filas se identifican por todas sus columnas y cada cambio debe afectar **exactamente una fila**; con filas idénticas se rechaza. Las columnas binarias no son editables.
 6. **Estructura:** el selector *Datos / Estructura* de cada tabla (o el icono de capas que aparece al pasar el ratón por una tabla del árbol) muestra las columnas con su tipo completo, `PK` y `AUTO`, los índices, las claves foráneas (con enlace a la tabla referenciada) y el **DDL** (`CREATE TABLE`), que puedes copiar o abrir en una consulta sin ejecutarlo. En PostgreSQL y SQL Server el DDL se reconstruye desde el catálogo y puede omitir triggers y opciones de almacenamiento (en SQL Server, también los `CHECK`).
-7. En una pestaña de consulta, escribe SQL y pulsa **Ctrl+Enter** (o **▶ Ejecutar**) para ejecutar la selección, o todo el texto si no hay selección. **■ Cancelar** interrumpe una consulta en curso.
-8. Edita una conexión con **✎** o doble clic, y elimínala con **✕**.
+7. **Modificar la estructura:** en la vista *Estructura* puedes añadir, modificar, renombrar y eliminar columnas (lápiz de cada fila), crear y eliminar índices, añadir y eliminar claves foráneas, y renombrar o eliminar la tabla. Para crear una tabla nueva, pasa el ratón por la base de datos o el esquema en el árbol y pulsa **+**.
+   Cada cambio muestra primero el **SQL exacto** que se va a ejecutar, con avisos (operaciones destructivas, datos que pueden no encajar…), y solo se ejecuta al confirmar. En PostgreSQL, SQLite y SQL Server las sentencias van en una transacción; **MySQL no admite DDL transaccional** y lo avisa. SQLite no permite con `ALTER TABLE` modificar columnas ni añadir o borrar claves foráneas: lo dice con un mensaje claro en vez de recrear la tabla en silencio.
+8. En una pestaña de consulta, escribe SQL y pulsa **Ctrl+Enter** (o **▶ Ejecutar**) para ejecutar la selección, o todo el texto si no hay selección. **■ Cancelar** interrumpe una consulta en curso.
+9. Edita una conexión con **✎** o doble clic, y elimínala con **✕**.
 
 Los resultados de una consulta se limitan a 1000 filas; la barra inferior avisa si se truncaron.
 

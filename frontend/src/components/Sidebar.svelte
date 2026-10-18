@@ -55,8 +55,9 @@
         {#if filter}<button class="ghost icon" aria-label="Limpiar filtro" onclick={() => (filter = '')}><Icon name="x" size={12} /></button>{/if}
       </label>
       <div class="scroll">
-        {#key ws.active.id + ':' + reloads}
-          <SchemaTree profile={ws.active} {filter} onopen={(d) => ws.setDatabase(d)} ontable={(d, s, t) => ws.openTable(d, s, t)} onstructure={(d, s, t) => ws.openTable(d, s, t, 'structure')} />
+        {#key ws.active.id + ':' + reloads + ':' + ws.schemaVersion}
+          <SchemaTree profile={ws.active} {filter} onopen={(d) => ws.setDatabase(d)} ontable={(d, s, t) => ws.openTable(d, s, t)} onstructure={(d, s, t) => ws.openTable(d, s, t, 'structure')}
+            oncreate={(d, s) => ui.openSchema({ profile: ws.active!.id, database: d, schema: s, table: '' }, 'create_table')} />
         {/key}
       </div>
     </section>
