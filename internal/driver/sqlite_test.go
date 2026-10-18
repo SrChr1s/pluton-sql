@@ -126,3 +126,20 @@ func TestSQLiteOpenPaths(t *testing.T) {
 		t.Error("abrir un archivo inexistente no debe crearlo")
 	}
 }
+
+// OFFSET/FETCH solo existe desde SQL Server 2012; la paginación debe seguir funcionando en 2005/2008.
+func TestMSSQLPagingAvoidsOffsetFetch(t *testing.T) {
+	d, _ := Get("mssql")
+	q, hidden := d.PageSQL("[dbo].[t]", " WHERE (a > 1)", "ORDER BY [id] ASC", 10, 20)
+	for _, bad := range []string{"OFFSET", "FETCH"} {
+		if strings.Contains(strings.ToUpper(q), bad) {
+			t.Errorf("la consulta usa %s, no disponible antes de SQL Server 2012:\n%s", bad, q)
+		}
+	}
+	if !strings.Contains(q, "ROW_NUMBER() OVER (ORDER BY [id] ASC)") || !strings.Contains(q, "__rn > 20 AND __rn <= 30") || hidden != 1 {
+		t.Errorf("consulta inesperada (hidden=%d):\n%s", hidden, q)
+	}
+	if q2, _ := d.PageSQL("[t]", "", "", 5, 0); !strings.Contains(q2, "OVER (ORDER BY (SELECT NULL))") {
+		t.Errorf("sin orden debe usar ORDER BY (SELECT NULL):\n%s", q2)
+	}
+}

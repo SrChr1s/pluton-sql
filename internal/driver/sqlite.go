@@ -82,6 +82,7 @@ func (sqlite) ListColumns(ctx context.Context, db *sql.DB, _, table string) ([]C
 	}
 	defer rows.Close()
 	var out []ColumnInfo
+	pks := 0
 	for rows.Next() {
 		var cid, notnull, pk int
 		var name, typ string
@@ -89,7 +90,14 @@ func (sqlite) ListColumns(ctx context.Context, db *sql.DB, _, table string) ([]C
 		if err := rows.Scan(&cid, &name, &typ, &notnull, &dflt, &pk); err != nil {
 			return nil, err
 		}
+		if pk > 0 {
+			pks++
+		}
 		out = append(out, ColumnInfo{Name: name, Type: typ, Nullable: notnull == 0, PrimaryKey: pk > 0, Default: dflt.String})
+	}
+	// Una clave primaria INTEGER única es un alias del rowid: el motor genera el valor.
+	for i := range out {
+		out[i].AutoIncrement = pks == 1 && out[i].PrimaryKey && strings.EqualFold(out[i].Type, "INTEGER")
 	}
 	return out, rows.Err()
 }
@@ -107,7 +115,7 @@ func (sqlite) ListIndexes(ctx context.Context, db *sql.DB, _, table string) ([]I
 			rows.Close()
 			return nil, err
 		}
-		out = append(out, IndexInfo{Name: name, Unique: unique == 1})
+		out = append(out, IndexInfo{Name: name, Unique: unique == 1, Primary: origin == "pk"})
 	}
 	rows.Close()
 	for i := range out {
@@ -140,6 +148,36 @@ func queryColumnNames(ctx context.Context, db *sql.DB, index string) ([]string, 
 
 func (sqlite) Quote(ident string) string { return quoteWith(`"`, `"`, ident) }
 func (sqlite) Param(n int) string        { return "?" }
-func (sqlite) Paginate(order string, limit, offset int) string {
-	return limitOffset(order, limit, offset)
+func (sqlite) PageSQL(from, where, order string, limit, offset int) (string, int) {
+	return limitOffsetSQL(from, where, order, limit, offset)
+}
+
+func (sqlite) ListForeignKeys(ctx context.Context, db *sql.DB, _, table string) ([]ForeignKeyInfo, error) {
+	rows, err := db.QueryContext(ctx, fmt.Sprintf("PRAGMA foreign_key_list(%s)", quoteIdent(table)))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var rs []fkRow
+	for rows.Next() {
+		var id, seq int
+		var refTable, from, onUpdate, onDelete, match string
+		var to sql.NullString
+		if err := rows.Scan(&id, &seq, &refTable, &from, &to, &onUpdate, &onDelete, &match); err != nil {
+			return nil, err
+		}
+		// SQLite no nombra las claves foráneas: se numera por su id.
+		rs = append(rs, fkRow{name: fmt.Sprintf("fk_%d", id), refTable: refTable, column: from, refColumn: to.String, onUpdate: fkAction(onUpdate), onDelete: fkAction(onDelete)})
+	}
+	return groupForeignKeys(rs), rows.Err()
+}
+
+// TableDDL devuelve el SQL original guardado por SQLite (tabla o vista, más sus índices).
+func (sqlite) TableDDL(ctx context.Context, db *sql.DB, _, table string, _ bool) (string, error) {
+	out, err := queryStrings(ctx, db, `SELECT sql FROM sqlite_master WHERE tbl_name = ? AND sql IS NOT NULL
+		ORDER BY CASE type WHEN 'table' THEN 0 WHEN 'view' THEN 0 ELSE 1 END, name`, table)
+	if err != nil {
+		return "", err
+	}
+	return strings.Join(out, ";\n\n") + ";", nil
 }

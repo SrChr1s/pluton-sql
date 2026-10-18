@@ -100,7 +100,7 @@ func (s *DataService) Page(req PageRequest) (*TablePage, error) {
 	}
 
 	// Una fila de más para saber si hay página siguiente sin contar toda la tabla.
-	q := fmt.Sprintf("SELECT * FROM %s%s %s", qualified(d, req.Table), where, d.Paginate(order, limit+1, offset))
+	q, hidden := d.PageSQL(qualified(d, req.Table), where, order, limit+1, offset)
 	start := time.Now()
 	rows, err := db.QueryContext(ctx, q)
 	if err != nil {
@@ -110,6 +110,10 @@ func (s *DataService) Page(req PageRequest) (*TablePage, error) {
 	res := &QueryResult{Columns: []string{}, Rows: [][]any{}}
 	if err := readRows(rows, res, limit); err != nil {
 		return nil, err
+	}
+	res.Columns = res.Columns[hidden:] // columnas auxiliares de la paginación (p. ej. __rn en SQL Server)
+	for i := range res.Rows {
+		res.Rows[i] = res.Rows[i][hidden:]
 	}
 
 	byName := map[string]driver.ColumnInfo{}
@@ -204,11 +208,15 @@ func (s *DataService) Apply(ref TableRef, changes []Change) (*ApplyResult, error
 
 // open resuelve pool, dialecto, metadatos de columnas y tipo (tabla/vista).
 func (s *DataService) open(ctx context.Context, ref TableRef) (driver.TableInfo, *sql.DB, driver.Dialect, []driver.ColumnInfo, error) {
+	return openTable(ctx, s.pools, ref)
+}
+
+func openTable(ctx context.Context, pools Pools, ref TableRef) (driver.TableInfo, *sql.DB, driver.Dialect, []driver.ColumnInfo, error) {
 	var t driver.TableInfo
 	if ref.Table == "" {
 		return t, nil, nil, nil, errors.New("falta el nombre de la tabla")
 	}
-	db, d, err := s.pools.Get(ctx, ref.Profile, ref.Database)
+	db, d, err := pools.Get(ctx, ref.Profile, ref.Database)
 	if err != nil {
 		return t, nil, nil, nil, err
 	}

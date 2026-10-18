@@ -84,8 +84,9 @@ make dev
 5. Para editar datos: doble clic (o `Enter`) en una celda, `Tab` pasa a la siguiente, `Esc` cancela y el botón **NULL** pone el valor nulo. **+ Fila** añade una fila nueva (las columnas que dejes vacías usan su valor por defecto) y el icono de papelera marca una fila para borrar.
    Nada se escribe hasta pulsar **Aplicar** (`Ctrl+S`): todos los cambios van en **una sola transacción**, y si uno falla no se aplica ninguno. **Descartar** los deshace. Al cambiar de página, orden o filtro, o al cerrar la pestaña con cambios pendientes, pide confirmación.
    Las vistas son de solo lectura. Si una tabla no tiene clave primaria, las filas se identifican por todas sus columnas y cada cambio debe afectar **exactamente una fila**; con filas idénticas se rechaza. Las columnas binarias no son editables.
-6. En una pestaña de consulta, escribe SQL y pulsa **Ctrl+Enter** (o **▶ Ejecutar**) para ejecutar la selección, o todo el texto si no hay selección. **■ Cancelar** interrumpe una consulta en curso.
-7. Edita una conexión con **✎** o doble clic, y elimínala con **✕**.
+6. **Estructura:** el selector *Datos / Estructura* de cada tabla (o el icono de capas que aparece al pasar el ratón por una tabla del árbol) muestra las columnas con su tipo completo, `PK` y `AUTO`, los índices, las claves foráneas (con enlace a la tabla referenciada) y el **DDL** (`CREATE TABLE`), que puedes copiar o abrir en una consulta sin ejecutarlo. En PostgreSQL y SQL Server el DDL se reconstruye desde el catálogo y puede omitir triggers y opciones de almacenamiento (en SQL Server, también los `CHECK`).
+7. En una pestaña de consulta, escribe SQL y pulsa **Ctrl+Enter** (o **▶ Ejecutar**) para ejecutar la selección, o todo el texto si no hay selección. **■ Cancelar** interrumpe una consulta en curso.
+8. Edita una conexión con **✎** o doble clic, y elimínala con **✕**.
 
 Los resultados de una consulta se limitan a 1000 filas; la barra inferior avisa si se truncaron.
 
@@ -107,6 +108,7 @@ En el formulario de conexión, el selector **Versión mínima de TLS** permite n
 ```bash
 make test                       # tests del backend (con el parche TLS)
 make test-integration           # además, contra PostgreSQL y MariaDB reales (requiere Docker)
+docker compose --profile mssql up -d --wait   # opcional: SQL Server, que activa sus casos en los tests de integración
 cd frontend && npm run check    # comprobación de tipos del frontend
 ```
 

@@ -154,15 +154,20 @@ class Workspace {
   }
 
   /** Abre los datos de una tabla en una pestaña editable (reutiliza la pestaña si ya está abierta). */
-  openTable(database: string, schema: string, table: string) {
+  openTable(database: string, schema: string, table: string, mode: 'data' | 'structure' = 'data') {
     const p = this.active
     if (!p) return
     const open = this.tabs.find(
       (t): t is DataTab => t.kind === 'table' && t.state.loc.database === database && t.state.loc.schema === schema && t.state.loc.table === table,
     )
-    if (open) return this.select(open.id)
+    if (open) {
+      this.select(open.id)
+      void open.state.setMode(mode)
+      return
+    }
     const state = new TableState({ profile: p.id, database, schema, table })
     const tab = this.add<DataTab>({ kind: 'table', id: crypto.randomUUID(), title: table, database, state })
+    if (mode === 'structure') void tab.state.setMode('structure')
     tab.state.load()
   }
 

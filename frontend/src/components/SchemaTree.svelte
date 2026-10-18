@@ -2,11 +2,12 @@
   import Icon from './Icon.svelte'
   import { api, errMsg, type Profile, type Table, type Column } from '../lib/api'
 
-  let { profile, filter = '', onopen, ontable }: {
+  let { profile, filter = '', onopen, ontable, onstructure }: {
     profile: Profile
     filter?: string
     onopen: (database: string) => void
     ontable: (database: string, schema: string, table: string) => void
+    onstructure: (database: string, schema: string, table: string) => void
   } = $props()
 
   type Node = { open: boolean; loading: boolean; error: string }
@@ -59,18 +60,19 @@
   const key = (e: KeyboardEvent, fn: () => void) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn() } }
 </script>
 
-{#snippet row(depth: number, open: boolean | null, busy: boolean, icon: string, label: string, toggleFn: () => void, dbl?: () => void)}
+{#snippet row(depth: number, open: boolean | null, busy: boolean, icon: string, label: string, toggleFn: () => void, dbl?: () => void, info?: () => void)}
   <div class="item" style:padding-left="{8 + depth * 14}px" role="treeitem" tabindex="0" aria-selected="false"
        aria-expanded={open === null ? undefined : open} onclick={toggleFn} ondblclick={dbl} onkeydown={(e) => key(e, toggleFn)}>
     <span class="caret">{#if busy}<span class="spin"></span>{:else if open !== null}<Icon name={open ? 'down' : 'right'} size={12} />{/if}</span>
     <Icon name={icon} size={14} /><span class="label" title={label}>{label}</span>
+    {#if info}<button class="ghost icon info" title="Ver estructura" aria-label="Ver estructura de {label}" onclick={(e) => { e.stopPropagation(); info() }}><Icon name="layers" size={12} /></button>{/if}
   </div>
 {/snippet}
 
 {#snippet tableRows(db: string, s: string, depth: number)}
   {#each visible(tables[`${db}/${s}`]) as t (t.name)}
     {@const k = `${db}/${s}/${t.name}`}
-    {@render row(depth, node(k).open, node(k).loading, t.type === 'view' ? 'view' : 'table', t.name, () => toggleTable(db, s, t.name), () => ontable(db, s, t.name))}
+    {@render row(depth, node(k).open, node(k).loading, t.type === 'view' ? 'view' : 'table', t.name, () => toggleTable(db, s, t.name), () => ontable(db, s, t.name), () => onstructure(db, s, t.name))}
     {#if node(k).open}
       {#each columns[k] ?? [] as c (c.name)}
         <div class="col" style:padding-left="{8 + (depth + 1) * 14 + 16}px" title="{c.name} {c.type}{c.nullable ? '' : ' NOT NULL'}{c.default ? ' DEFAULT ' + c.default : ''}">
@@ -111,7 +113,9 @@
   .item { cursor: pointer; }
   .item:hover { background: var(--hover); }
   .item :global(svg) { color: var(--muted); }
-  .label { overflow: hidden; text-overflow: ellipsis; }
+  .label { overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .info { opacity: 0; padding: 2px; margin-left: auto; }
+  .item:hover .info, .info:focus-visible { opacity: 1; }
   .caret { width: 12px; display: grid; place-items: center; }
   .col { justify-content: space-between; color: var(--muted); height: 21px; gap: 10px; }
   .cname { display: flex; align-items: center; gap: 4px; overflow: hidden; text-overflow: ellipsis; }

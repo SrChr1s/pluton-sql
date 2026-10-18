@@ -42,6 +42,7 @@ func main() {
 			app.Schema,
 			app.Query,
 			app.Data,
+			app.Structure,
 			app.Dialogs,
 		},
 	})

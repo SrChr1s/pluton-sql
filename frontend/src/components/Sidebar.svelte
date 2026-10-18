@@ -56,7 +56,7 @@
       </label>
       <div class="scroll">
         {#key ws.active.id + ':' + reloads}
-          <SchemaTree profile={ws.active} {filter} onopen={(d) => ws.setDatabase(d)} ontable={(d, s, t) => ws.openTable(d, s, t)} />
+          <SchemaTree profile={ws.active} {filter} onopen={(d) => ws.setDatabase(d)} ontable={(d, s, t) => ws.openTable(d, s, t)} onstructure={(d, s, t) => ws.openTable(d, s, t, 'structure')} />
         {/key}
       </div>
     </section>

@@ -1,4 +1,4 @@
-import { api, errMsg, type Change, type PageRequest, type TablePage } from './api'
+import { api, errMsg, type Change, type PageRequest, type TablePage, type TableStructure } from './api'
 import { ui } from './ui.svelte'
 
 export type TableLocation = { profile: string; database: string; schema: string; table: string }
@@ -31,6 +31,12 @@ export class TableState {
   total = $state<number | null>(null)
   counting = $state(false)
 
+  // Vista de estructura (columnas, índices, claves foráneas y DDL).
+  mode = $state<'data' | 'structure'>('data')
+  structure = $state<TableStructure | null>(null)
+  structureLoading = $state(false)
+  structureError = $state('')
+
   // Cambios pendientes: no se escribe nada hasta llamar a apply().
   edits = $state<Edits>({})
   deleted = $state<Record<number, boolean>>({})
@@ -38,6 +44,26 @@ export class TableState {
 
   constructor(loc: TableLocation) {
     this.loc = loc
+  }
+
+  async loadStructure() {
+    this.structureLoading = true
+    this.structureError = ''
+    try {
+      const st = await api.describeTable(this.loc)
+      st.columns = st.columns ?? []
+      st.indexes = st.indexes ?? []
+      st.foreignKeys = st.foreignKeys ?? []
+      this.structure = st
+    } catch (e) {
+      this.structureError = errMsg(e)
+    }
+    this.structureLoading = false
+  }
+
+  async setMode(mode: 'data' | 'structure') {
+    this.mode = mode
+    if (mode === 'structure' && !this.structure) await this.loadStructure()
   }
 
   // --- derivados ---

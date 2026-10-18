@@ -1,7 +1,9 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
   import { ws, type DataTab } from '../lib/workspace.svelte'
-  import { display, isReadonlyType } from '../lib/table.svelte'
+  import { isReadonlyType } from '../lib/table.svelte'
+  import { copyText } from '../lib/clipboard'
+  import StructureView from './StructureView.svelte'
 
   let { tab }: { tab: DataTab } = $props()
   const t = $derived(tab.state)
@@ -72,15 +74,6 @@
     return { destroy: () => cancelAnimationFrame(f) }
   }
 
-  async function copy(text: string) {
-    try { await navigator.clipboard.writeText(text) }
-    catch {
-      const ta = document.createElement('textarea')
-      ta.value = text; document.body.appendChild(ta); ta.select()
-      try { document.execCommand('copy') } finally { ta.remove() }
-    }
-  }
-
   function onGridKey(e: KeyboardEvent) {
     if (editing || !selected) return
     const s = selected
@@ -99,7 +92,7 @@
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
       e.preventDefault()
       const v = s.draft === null ? t.value(s.row, s.col) : (t.drafts[s.draft][s.col] ?? null)
-      copy(v ?? '')
+      void copyText(v ?? '')
     }
   }
 
@@ -121,6 +114,16 @@
 </script>
 
 <div class="tv">
+  <div class="modes" role="tablist" aria-label="Vista de la tabla">
+    <button class="mode" class:on={t.mode === 'data'} role="tab" aria-selected={t.mode === 'data'} onclick={() => t.setMode('data')}><Icon name="table" size={13} /> Datos</button>
+    <button class="mode" class:on={t.mode === 'structure'} role="tab" aria-selected={t.mode === 'structure'} onclick={() => t.setMode('structure')}><Icon name="layers" size={13} /> Estructura</button>
+    <span class="who">{t.loc.schema ? `${t.loc.schema}.` : ''}{t.loc.table}{t.page?.isView || t.structure?.isView ? ' · vista' : ''}</span>
+    {#if t.pending > 0 && t.mode === 'structure'}<span class="pend-note">{t.pending} cambio(s) sin aplicar en Datos</span>{/if}
+  </div>
+
+  {#if t.mode === 'structure'}
+    <StructureView {tab} />
+  {:else}
   <div class="bar">
     <button class="ghost icon" title="Recargar (F5)" aria-label="Recargar" onclick={() => t.reload()} disabled={t.loading}><Icon name="refresh" size={15} /></button>
     <div class="filter">
@@ -234,6 +237,7 @@
     <span class="grow"></span>
     <span class="hint">doble clic o <kbd>Enter</kbd> edita · <kbd>Tab</kbd> siguiente · <kbd>Esc</kbd> cancela · <kbd>Ctrl</kbd>+<kbd>C</kbd> copia</span>
   </div>
+  {/if}
 </div>
 
 {#snippet editor()}
@@ -245,6 +249,12 @@
 
 <style>
   .tv { display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--surface); }
+  .modes { display: flex; align-items: center; gap: 2px; padding: 6px 10px 0; border-bottom: 1px solid var(--border); }
+  .mode { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 5px 12px; color: var(--muted); }
+  .mode:hover:not(:disabled) { background: var(--hover); color: var(--text); }
+  .mode.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  .who { margin-left: 12px; color: var(--muted); font: 12px var(--mono); }
+  .pend-note { margin-left: auto; color: var(--accent); font-size: 12px; }
   .bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
   .filter { flex: 1 1 220px; max-width: 460px; display: flex; align-items: center; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding-right: 2px; }
   .filter:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }

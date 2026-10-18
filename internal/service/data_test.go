@@ -48,6 +48,15 @@ func newData(t *testing.T) (*DataService, *sql.DB) {
 	return NewDataService(fakePools{db, d}), db
 }
 
+func mustDialect(t *testing.T) driver.Dialect {
+	t.Helper()
+	d, err := driver.Get("sqlite")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
 func ref(table string) TableRef { return TableRef{Profile: "p", Table: table} }
 
 func TestPage(t *testing.T) {

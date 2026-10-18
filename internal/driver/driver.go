@@ -22,12 +22,26 @@ type ColumnInfo struct {
 	Nullable   bool   `json:"nullable"`
 	PrimaryKey bool   `json:"primaryKey"`
 	Default    string `json:"default"`
+	// AutoIncrement: el motor genera el valor (AUTO_INCREMENT, IDENTITY, serial, rowid).
+	AutoIncrement bool `json:"autoIncrement"`
 }
 
 type IndexInfo struct {
 	Name    string   `json:"name"`
 	Columns []string `json:"columns"`
 	Unique  bool     `json:"unique"`
+	Primary bool     `json:"primary"`
+}
+
+// ForeignKeyInfo describe una clave foránea saliente de una tabla.
+type ForeignKeyInfo struct {
+	Name       string   `json:"name"`
+	Columns    []string `json:"columns"`
+	RefSchema  string   `json:"refSchema"`
+	RefTable   string   `json:"refTable"`
+	RefColumns []string `json:"refColumns"`
+	OnUpdate   string   `json:"onUpdate"`
+	OnDelete   string   `json:"onDelete"`
 }
 
 // Dialect encapsula DSN y consultas de catálogo de un motor.
@@ -47,13 +61,18 @@ type Dialect interface {
 	ListColumns(ctx context.Context, db *sql.DB, schema, table string) ([]ColumnInfo, error)
 	ListIndexes(ctx context.Context, db *sql.DB, schema, table string) ([]IndexInfo, error)
 
+	ListForeignKeys(ctx context.Context, db *sql.DB, schema, table string) ([]ForeignKeyInfo, error)
+	// TableDDL devuelve el SQL que crea la tabla o vista (con sus índices y claves).
+	TableDDL(ctx context.Context, db *sql.DB, schema, table string, isView bool) (string, error)
+
 	// Quote cita un identificador (tabla, columna...) escapando las comillas.
 	Quote(ident string) string
 	// Param devuelve el marcador del parámetro n (1-based): $1, ?, @p1.
 	Param(n int) string
-	// Paginate devuelve el sufijo de paginación. order es una cláusula ORDER BY
-	// ya construida o "" si no hay orden.
-	Paginate(order string, limit, offset int) string
+	// PageSQL devuelve la consulta de una página de from (tabla ya citada). where y order son
+	// cláusulas ya construidas (o ""). hidden es el número de columnas auxiliares al principio
+	// del resultado que el llamador debe descartar.
+	PageSQL(from, where, order string, limit, offset int) (query string, hidden int)
 }
 
 // Opener es opcional: un dialecto lo implementa cuando la cadena DSN no basta
@@ -107,8 +126,8 @@ func queryStrings(ctx context.Context, db *sql.DB, q string, args ...any) ([]str
 
 // groupIndexes agrupa filas (index, column, unique) preservando el orden.
 type indexRow struct {
-	name, column string
-	unique       bool
+	name, column    string
+	unique, primary bool
 }
 
 func groupIndexes(rows []indexRow) []IndexInfo {
@@ -119,7 +138,7 @@ func groupIndexes(rows []indexRow) []IndexInfo {
 		if !ok {
 			i = len(out)
 			pos[r.name] = i
-			out = append(out, IndexInfo{Name: r.name, Unique: r.unique})
+			out = append(out, IndexInfo{Name: r.name, Unique: r.unique, Primary: r.primary})
 		}
 		out[i].Columns = append(out[i].Columns, r.column)
 	}
@@ -130,10 +149,36 @@ func quoteWith(open, close, ident string) string {
 	return open + strings.ReplaceAll(ident, close, close+close) + close
 }
 
-// limitOffset es la paginación estándar de PostgreSQL, MySQL y SQLite.
-func limitOffset(order string, limit, offset int) string {
+// limitOffsetSQL es la paginación estándar de PostgreSQL, MySQL y SQLite.
+func limitOffsetSQL(from, where, order string, limit, offset int) (string, int) {
 	if order != "" {
 		order += " "
 	}
-	return fmt.Sprintf("%sLIMIT %d OFFSET %d", order, limit, offset)
+	return fmt.Sprintf("SELECT * FROM %s%s %sLIMIT %d OFFSET %d", from, where, order, limit, offset), 0
+}
+
+// fkRow es una fila (restricción, columna origen, destino) antes de agrupar.
+type fkRow struct {
+	name, refSchema, refTable, column, refColumn, onUpdate, onDelete string
+}
+
+func groupForeignKeys(rows []fkRow) []ForeignKeyInfo {
+	var out []ForeignKeyInfo
+	pos := map[string]int{}
+	for _, r := range rows {
+		i, ok := pos[r.name]
+		if !ok {
+			i = len(out)
+			pos[r.name] = i
+			out = append(out, ForeignKeyInfo{Name: r.name, RefSchema: r.refSchema, RefTable: r.refTable, OnUpdate: r.onUpdate, OnDelete: r.onDelete})
+		}
+		out[i].Columns = append(out[i].Columns, r.column)
+		out[i].RefColumns = append(out[i].RefColumns, r.refColumn)
+	}
+	return out
+}
+
+// fkAction normaliza la acción referencial a "NO ACTION", "CASCADE", "SET NULL"...
+func fkAction(s string) string {
+	return strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(s), "_", " "))
 }

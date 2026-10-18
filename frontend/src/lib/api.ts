@@ -3,6 +3,7 @@ import * as Schema from '../../wailsjs/go/service/SchemaService'
 import * as Query from '../../wailsjs/go/service/QueryService'
 import * as Dialogs from '../../wailsjs/go/service/DialogService'
 import * as Data from '../../wailsjs/go/service/DataService'
+import * as Structure from '../../wailsjs/go/service/StructureService'
 import type { config, driver, service } from '../../wailsjs/go/models'
 
 export type Profile = config.ConnectionProfile
@@ -14,6 +15,8 @@ export type TablePage = service.TablePage
 export type TableRef = service.TableRef
 export type Change = service.Change
 export type PageRequest = service.PageRequest
+export type TableStructure = service.TableStructure
+export type ForeignKey = driver.ForeignKeyInfo
 
 export const emptyProfile = (): Profile =>
   ({ id: '', name: '', driver: 'postgres', host: 'localhost', port: 5432, user: '', database: '', filePath: '', sslMode: '', tlsMinVersion: '' }) as Profile
@@ -36,6 +39,7 @@ export const api = {
   indexes: list(Schema.Indexes),
   execute: Query.Execute,
   cancel: Query.Cancel,
+  describeTable: Structure.Describe,
   tablePage: Data.Page,
   tableCount: Data.Count,
   applyChanges: Data.Apply,
