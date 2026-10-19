@@ -10,6 +10,10 @@ export function List() {
   return window['go']['service']['WorkspaceService']['List']();
 }
 
+export function MoveConnection(arg1, arg2) {
+  return window['go']['service']['WorkspaceService']['MoveConnection'](arg1, arg2);
+}
+
 export function Save(arg1) {
   return window['go']['service']['WorkspaceService']['Save'](arg1);
 }

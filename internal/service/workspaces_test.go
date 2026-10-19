@@ -66,3 +66,29 @@ func TestWorkspaceDeleteKeepsConnections(t *testing.T) {
 		t.Errorf("la otra conexión no debería tocarse: %v", err)
 	}
 }
+
+func TestMoveConnection(t *testing.T) {
+	s, conns := newWS(t)
+	w, _ := s.Save(config.Workspace{Name: "Local"})
+	p, _ := conns.Save(config.ConnectionProfile{Name: "a", Driver: "postgres", Host: "h", Port: 5432, Color: "#ff0000"})
+
+	got, err := s.MoveConnection(p.ID, w.ID)
+	if err != nil || got.Workspace != w.ID {
+		t.Fatalf("mover: %+v %v", got, err)
+	}
+	if got.Host != "h" || got.Port != 5432 || got.Color != "#ff0000" {
+		t.Errorf("mover no debe alterar el resto de campos: %+v", got)
+	}
+	if again, _ := conns.Get(p.ID); again.Workspace != w.ID {
+		t.Errorf("no se guardó: %+v", again)
+	}
+	if got, err := s.MoveConnection(p.ID, ""); err != nil || got.Workspace != "" {
+		t.Errorf("sacar del workspace: %+v %v", got, err)
+	}
+	if _, err := s.MoveConnection(p.ID, "no-existe"); err == nil {
+		t.Error("mover a un workspace inexistente debería fallar")
+	}
+	if _, err := s.MoveConnection("no-existe", w.ID); err == nil {
+		t.Error("mover una conexión inexistente debería fallar")
+	}
+}

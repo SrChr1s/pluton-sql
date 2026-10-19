@@ -17,6 +17,8 @@ export type Toast = { id: number; msg: string; kind: 'ok' | 'err' }
 export type PromptOptions = { title: string; label: string; value?: string; confirmLabel?: string }
 
 class UI {
+  /** Id de la conexión que se está arrastrando (los datos del drag no se pueden leer en dragover). */
+  dragConn = $state('')
   /** Formulario de conexión abierto en el área principal (profile null = nueva). */
   connForm = $state<{ profile: Profile | null } | null>(null)
   exporting = $state<ExportSource | null>(null)

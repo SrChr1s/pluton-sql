@@ -132,6 +132,17 @@ class Workspace {
     else this.active = null
   }
 
+  /** Mueve una conexión a otro workspace ("" = ninguno) sin cerrar sus pools. */
+  async moveProfile(profileId: string, workspaceId: string) {
+    const moved = await api.moveConnection(profileId, workspaceId)
+    await this.loadProfiles()
+    if (this.active?.id === profileId) {
+      this.active = this.profiles.find((p) => p.id === profileId) ?? moved
+      // La conexión en uso sigue visible: se acompaña al workspace al que se movió.
+      if (this.workspaceId && this.workspaceId !== workspaceId) this.saveWorkspaceId(workspaceId)
+    }
+  }
+
   async createWorkspace(name: string): Promise<WorkspaceInfo> {
     const w = await api.saveWorkspace({ id: '', name } as WorkspaceInfo)
     await this.loadWorkspaces()

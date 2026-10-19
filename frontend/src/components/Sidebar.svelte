@@ -43,7 +43,9 @@
 </script>
 
 {#snippet row(p: Profile)}
-        <div class="conn" class:sel={ws.active?.id === p.id} role="option" tabindex="0" aria-selected={ws.active?.id === p.id}
+        <div class="conn" class:sel={ws.active?.id === p.id} class:dragging={ui.dragConn === p.id} draggable="true"
+         ondragstart={(e) => { ui.dragConn = p.id; if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', p.name) } }}
+         ondragend={() => (ui.dragConn = '')} role="option" tabindex="0" aria-selected={ws.active?.id === p.id}
              onclick={() => open(p)} ondblclick={() => onedit(p)}
              onkeydown={(e) => e.key === 'Enter' && open(p)}>
           <span class="bar" style:background={p.color || undefined}></span>
@@ -147,6 +149,7 @@
   .list, .scroll { flex: 1; overflow: auto; min-height: 0; padding-bottom: 6px; }
   .conn { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 0; cursor: pointer; }
   .conn:hover { background: var(--hover); }
+  .conn.dragging { opacity: .45; }
   .conn.sel { background: var(--accent-soft); }
   .bar { align-self: stretch; width: 3px; margin: 2px 7px 2px 10px; border-radius: 2px; background: var(--border); }
   .conn.sel .bar:not([style]) { background: var(--accent); }

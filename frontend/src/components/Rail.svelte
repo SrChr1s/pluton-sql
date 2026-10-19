@@ -19,6 +19,25 @@
   const hue = (id: string) => [...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)
   const initial = (name: string) => ([...name.trim()][0] ?? '?').toUpperCase()
 
+  // Soltar una conexión sobre un workspace (o sobre "Todas": sin workspace) la mueve ahí.
+  let over = $state<string | null>(null)
+  const dropProps = (target: string) => ({
+    ondragover: (e: DragEvent) => { if (ui.dragConn) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; over = target } },
+    ondragleave: () => { if (over === target) over = null },
+    ondrop: (e: DragEvent) => { e.preventDefault(); void drop(target) },
+  })
+  async function drop(target: string) {
+    const id = ui.dragConn
+    over = null; ui.dragConn = ''
+    if (!id) return
+    const p = ws.profiles.find((x) => x.id === id)
+    if (!p || (p.workspace || '') === target) return
+    try {
+      await ws.moveProfile(id, target)
+      ui.toast(`"${p.name}" ahora está ${target ? `en "${ws.workspaces.find((w) => w.id === target)?.name}"` : 'sin workspace'}`)
+    } catch (e) { ui.toast(errMsg(e), 'err') }
+  }
+
   let ctx = $state<{ x: number; y: number; w: WorkspaceInfo } | null>(null)
   // El menú se cierra antes de ejecutar la acción (y `ctx` pasa a null): se captura el workspace ahora.
   const ctxItems = $derived<MenuItem[]>(ctx ? ((w) => [
@@ -61,11 +80,11 @@
   {/each}
   <span class="grow"></span>
   <div class="wss" role="group" aria-label="Workspaces">
-    <button class="ghost icon all" class:on={!ws.workspaceId} title="Todas las conexiones" aria-label="Todas las conexiones" aria-pressed={!ws.workspaceId} onclick={() => ws.selectWorkspace('')}>
+    <button class="ghost icon all" class:on={!ws.workspaceId} title="Todas las conexiones" aria-label="Todas las conexiones" aria-pressed={!ws.workspaceId} class:drop={over === ''} onclick={() => ws.selectWorkspace('')} {...dropProps('')}>
       <Icon name="grid" size={17} />
     </button>
     {#each ws.workspaces as w (w.id)}
-      <button class="ghost icon w" class:on={ws.workspaceId === w.id} style:--h={hue(w.id)} title={w.name} aria-label="Workspace {w.name}" aria-pressed={ws.workspaceId === w.id}
+      <button class="ghost icon w" class:on={ws.workspaceId === w.id} class:drop={over === w.id} {...dropProps(w.id)} style:--h={hue(w.id)} title={w.name} aria-label="Workspace {w.name}" aria-pressed={ws.workspaceId === w.id}
               onclick={() => ws.selectWorkspace(w.id)} oncontextmenu={(e) => { e.preventDefault(); ctx = { x: e.clientX, y: e.clientY, w } }}>
         {initial(w.name)}
       </button>
@@ -92,5 +111,6 @@
   :global(:root[data-theme="light"]) .rail .wss .w { color: hsl(var(--h) 60% 30%); background: hsl(var(--h) 70% 85%); }
   .rail .wss .w.on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px hsl(var(--h) 70% 60%); }
   .rail .wss .all.on { background: var(--accent-soft); color: var(--accent); }
+  .rail .wss button.drop { outline: 2px dashed var(--accent); outline-offset: 2px; background: var(--accent-soft); }
   .rail .wss .add { border: 1px dashed var(--border); }
 </style>

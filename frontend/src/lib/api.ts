@@ -54,6 +54,7 @@ export const api = {
   listWorkspaces: list(Work.List),
   saveWorkspace: Work.Save,
   deleteWorkspace: Work.Delete,
+  moveConnection: Work.MoveConnection,
   databases: list(Schema.Databases),
   schemas: list(Schema.Schemas),
   schemaIndex: Schema.Index,

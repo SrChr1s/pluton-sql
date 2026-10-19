@@ -6,4 +6,6 @@ export function Delete(arg1:string):Promise<void>;
 
 export function List():Promise<Array<config.Workspace>>;
 
+export function MoveConnection(arg1:string,arg2:string):Promise<config.ConnectionProfile>;
+
 export function Save(arg1:config.Workspace):Promise<config.Workspace>;
