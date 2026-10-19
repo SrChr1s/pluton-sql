@@ -33,6 +33,8 @@
   .rail { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0; background: var(--bg); }
   .rail button { width: 36px; height: 36px; padding: 0; display: grid; place-items: center; color: var(--muted); border-radius: 8px; }
   .rail button:hover { color: var(--text); }
-  .rail button.on { background: var(--surface-2); color: var(--text); }
+  .rail button { position: relative; }
+  .rail button.on { background: var(--accent-soft); color: var(--accent); }
+  .rail button.on::before { content: ''; position: absolute; left: -6px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
   .grow { flex: 1; }
 </style>

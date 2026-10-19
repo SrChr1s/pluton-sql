@@ -138,7 +138,7 @@
   .tools button { padding: 3px; color: var(--muted); display: inline-flex; align-items: center; gap: 1px; }
   .addwrap { position: relative; display: inline-flex; }
   .label.first { padding-top: 12px; }
-  .count { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 8px; background: var(--surface-2); color: var(--muted); font-weight: 600; }
+  .count { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
   .search { display: flex; align-items: center; margin: 0 10px 2px; padding: 0 4px 0 0; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
   .search:focus-within { border-color: var(--accent); }
   .search input { border: none; background: transparent; box-shadow: none; padding: 6px 10px; }
@@ -153,7 +153,7 @@
   .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .name { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .detail { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .badge { font: 600 10.5px var(--mono); color: var(--text); background: var(--surface-2); border-radius: 10px; padding: 1px 8px; }
+  .badge { font: 600 10.5px var(--mono); color: var(--accent); background: var(--accent-soft); border-radius: 10px; padding: 1px 8px; }
   .acts { display: none; }
   .conn:hover .acts, .conn:focus-within .acts { display: flex; }
   .conn:hover .badge, .conn:focus-within .badge { display: none; }

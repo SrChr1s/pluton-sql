@@ -177,8 +177,8 @@
   .fab { position: absolute; right: 18px; bottom: 10px; display: flex; gap: 8px; z-index: 3; }
   .fab button { background: var(--surface-2); }
   .fab button.ghost { background: transparent; }
-  .fab button.run { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
-  .fab button.run:hover:not(:disabled) { background: var(--text); filter: brightness(.9); }
+  .fab button.run { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+  .fab button.run:hover:not(:disabled) { background: var(--accent); filter: brightness(1.1); }
   .hsplit { height: 5px; margin: -2px 0; cursor: row-resize; position: relative; z-index: 5; background: transparent; }
   .hsplit:hover, .hsplit:active { background: var(--accent); opacity: .5; }
   .results { flex: 1; min-height: 0; }

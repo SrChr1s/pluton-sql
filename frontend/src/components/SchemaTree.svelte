@@ -181,7 +181,7 @@
 </script>
 
 {#snippet row(depth: number, open: boolean | null, busy: boolean, icon: string, label: string, toggleFn: () => void, dbl?: () => void, info?: () => void, create?: () => void, caretFn?: () => void, live?: boolean, oncontext?: (e: MouseEvent) => void)}
-  <div class="item" style:padding-left="{8 + depth * 14}px" role="treeitem" tabindex="0" aria-selected="false"
+  <div class="item" style:padding-left="{8 + depth * 14}px" role="treeitem" data-kind={icon} tabindex="0" aria-selected="false"
        aria-expanded={open === null ? undefined : open} onclick={toggleFn} ondblclick={dbl} oncontextmenu={oncontext} onkeydown={(e) => key(e, toggleFn, caretFn)}>
     <span class="caret" onclick={caretFn ? (e) => { e.stopPropagation(); caretFn() } : undefined} role="presentation">{#if busy}<span class="spin"></span>{:else if open !== null}<Icon name={open ? 'down' : 'right'} size={12} />{/if}</span>
     <Icon name={icon} size={14} /><span class="label" title={label}>{label}</span>
@@ -194,7 +194,7 @@
 {#snippet tableRows(db: string, s: string, depth: number)}
   {#each visible(tables[`${db}/${s}`]) as t (t.name)}
     {@const k = `${db}/${s}/${t.name}`}
-    {@render row(depth, node(k).open, node(k).loading, t.type === 'view' ? 'view' : 'table', t.name, () => ontable(db, s, t.name), undefined, () => onstructure(db, s, t.name), undefined, () => toggleTable(db, s, t.name), undefined, (e) => tableMenu(e, db, s, t))}
+    {@render row(depth, node(k).open, node(k).loading, t.type === 'view' ? 'view' : 'table', t.name, () => { ontable(db, s, t.name); if (!node(k).open) void toggleTable(db, s, t.name) }, undefined, () => onstructure(db, s, t.name), undefined, () => toggleTable(db, s, t.name), undefined, (e) => tableMenu(e, db, s, t))}
     {#if node(k).open}
       {#each columns[k] ?? [] as c (c.name)}
         <div class="col" style:padding-left="{8 + (depth + 1) * 14 + 16}px" title="{c.name} {c.type}{c.nullable ? '' : ' NOT NULL'}{c.default ? ' DEFAULT ' + c.default : ''}">
@@ -236,6 +236,9 @@
   .item { cursor: pointer; }
   .item:hover { background: var(--hover); }
   .item :global(svg) { color: var(--muted); }
+  .item[data-kind="table"] :global(svg) { color: var(--accent); }
+  .item[data-kind="view"] :global(svg) { color: var(--ok); }
+  .item[data-kind="database"] :global(svg) { color: var(--text); }
   .live { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
   .label { overflow: hidden; text-overflow: ellipsis; flex: 1; }
   .info { opacity: 0; padding: 2px; margin-left: auto; }

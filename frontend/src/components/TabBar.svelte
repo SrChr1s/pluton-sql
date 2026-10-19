@@ -45,6 +45,7 @@
   .add { align-self: center; margin: 0 4px; color: var(--muted); }
   .side { align-self: center; margin: 0 4px; color: var(--muted); }
   .kind { display: inline-flex; color: var(--muted); }
+  .tab.sel .kind { color: var(--accent); }
   .pend { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
   @keyframes pulse { 50% { opacity: .3; } }
   @media (prefers-reduced-motion: reduce) { .dot.running { animation: none; } }

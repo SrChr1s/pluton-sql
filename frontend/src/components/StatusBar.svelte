@@ -76,6 +76,6 @@
   .name { overflow: hidden; text-overflow: ellipsis; }
   .grow { flex: 1; }
   .db { color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
-  .drv { font-weight: 400; color: var(--muted); }
+  .drv { font-weight: 500; color: var(--accent); }
   .right button { padding: 3px 8px; font-size: 12px; }
 </style>

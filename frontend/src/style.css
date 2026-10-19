@@ -8,6 +8,7 @@
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
   --radius: 6px;
   color-scheme: dark;
+  accent-color: var(--accent);
 }
 :root[data-theme="light"] {
   --bg: #f4f5f8; --surface: #ffffff; --surface-2: #eceef3; --border: #d9dce4;
