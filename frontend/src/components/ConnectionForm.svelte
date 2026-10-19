@@ -130,8 +130,9 @@
 </div>
 
 <style>
-  .screen { flex: 1; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 40px 24px; background: var(--bg); }
-  .card { background: var(--surface); border-radius: 10px; padding: 20px; width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 12px; }
+  /* `margin: auto` centra la tarjeta en los dos ejes y, si no cabe, deja que la pantalla haga scroll sin recortar la parte de arriba. */
+  .screen { flex: 1; overflow: auto; display: flex; padding: 24px; background: var(--bg); }
+  .card { margin: auto; background: var(--surface); border-radius: 10px; padding: 20px; width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 12px; }
   h3 { margin: 0 0 4px; font-size: 18px; }
   h4 { margin: 0; font-size: 13px; }
   label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); flex: 1; }
