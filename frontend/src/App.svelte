@@ -32,6 +32,7 @@
   const shownPanel = $derived<Panel>(ws.active ? panel : 'connections')
 
   ws.loadProfiles()
+  ws.loadWorkspaces()
 
   // Al cambiar de conexión activa (también desde el menú de la barra inferior) se muestran sus entidades.
   const activeId = $derived(ws.active?.id)

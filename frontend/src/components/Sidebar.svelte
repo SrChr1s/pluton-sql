@@ -23,7 +23,7 @@
     if (t && ws.active) ui.openSchema({ profile: ws.active.id, database: t.database, schema: t.schema, table: '' }, 'create_table')
   }
 
-  const shown = $derived(ws.profiles.filter((p) => p.name.toLowerCase().includes(connFilter.trim().toLowerCase())))
+  const shown = $derived(ws.visibleProfiles.filter((p) => p.name.toLowerCase().includes(connFilter.trim().toLowerCase())))
   const base = (path: string) => path.split(/[\\/]/).pop() ?? path
   const detail = (p: Profile) => (p.driver === 'sqlite' ? base(p.filePath) : p.host + (p.database ? ` / ${p.database}` : ''))
 
@@ -69,12 +69,12 @@
       <input placeholder="Filtrar…" bind:value={connFilter} aria-label="Filtrar conexiones" />
       {#if connFilter}<button class="ghost icon" aria-label="Limpiar filtro" onclick={() => (connFilter = '')}><Icon name="x" size={12} /></button>{/if}
     </label>
-    <div class="label">Guardadas <span class="count">{ws.profiles.length}</span></div>
+    <div class="label">Guardadas <span class="count">{ws.visibleProfiles.length}</span></div>
     <div class="list" role="listbox" aria-label="Conexiones">
       {#each shown as p (p.id)}
         {@render row(p)}
       {:else}
-        <p class="hint">{ws.profiles.length ? 'Nada coincide con el filtro.' : 'Aún no hay conexiones.'}</p>
+        <p class="hint">{ws.visibleProfiles.length ? 'Nada coincide con el filtro.' : ws.workspaceId ? 'Este workspace no tiene conexiones.' : 'Aún no hay conexiones.'}</p>
       {/each}
     </div>
     {#if ws.recents.length}

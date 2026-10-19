@@ -15,6 +15,7 @@ type App struct {
 	ctx         context.Context
 	sess        *session.Manager
 	Connections *service.ConnectionService
+	Workspaces  *service.WorkspaceService
 	Schema      *service.SchemaService
 	Query       *service.QueryService
 	Data        *service.DataService
@@ -37,6 +38,10 @@ func NewApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	wsStore, err := config.NewWorkspaceStore("")
+	if err != nil {
+		return nil, err
+	}
 	histStore := history.NewStore(filepath.Join(dir, "history.json"))
 	sess := session.NewManager(store)
 	events := &service.Events{}
@@ -46,6 +51,7 @@ func NewApp() (*App, error) {
 		Import:      service.NewImportService(sess, events),
 		sess:        sess,
 		Connections: service.NewConnectionService(store, sess, func(id string) { _ = histStore.Clear(id) }),
+		Workspaces:  service.NewWorkspaceService(wsStore, store),
 		Schema:      service.NewSchemaService(sess),
 		Query:       service.NewQueryService(sess, service.NewHistoryRecorder(histStore)),
 		History:     service.NewHistoryService(histStore),

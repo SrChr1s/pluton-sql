@@ -1,4 +1,5 @@
 import * as Conn from '../../wailsjs/go/service/ConnectionService'
+import * as Work from '../../wailsjs/go/service/WorkspaceService'
 import * as Schema from '../../wailsjs/go/service/SchemaService'
 import * as Query from '../../wailsjs/go/service/QueryService'
 import * as Dialogs from '../../wailsjs/go/service/DialogService'
@@ -12,6 +13,7 @@ import * as SchemaEdit from '../../wailsjs/go/service/SchemaEditService'
 import type { config, driver, service, history, transfer } from '../../wailsjs/go/models'
 
 export type Profile = config.ConnectionProfile
+export type Workspace = config.Workspace
 export type Table = driver.TableInfo
 export type Column = driver.ColumnInfo
 export type Index = driver.IndexInfo
@@ -34,7 +36,7 @@ export type CsvPreview = transfer.Preview
 export type ForeignKey = driver.ForeignKeyInfo
 
 export const emptyProfile = (): Profile =>
-  ({ id: '', name: '', driver: 'postgres', host: 'localhost', port: 5432, user: '', database: '', filePath: '', sslMode: '', tlsMinVersion: '', color: '' }) as Profile
+  ({ id: '', name: '', driver: 'postgres', host: 'localhost', port: 5432, user: '', database: '', filePath: '', sslMode: '', tlsMinVersion: '', color: '', workspace: '' }) as Profile
 
 // Go serializa un slice nil como null: las listas se normalizan a [] en un solo punto.
 const list = <A extends unknown[], T>(fn: (...a: A) => Promise<T[] | null>) =>
@@ -49,6 +51,9 @@ export const api = {
   disconnectConnection: Conn.Disconnect,
   disconnectDatabase: Conn.DisconnectDatabase,
   testConnection: Conn.Test,
+  listWorkspaces: list(Work.List),
+  saveWorkspace: Work.Save,
+  deleteWorkspace: Work.Delete,
   databases: list(Schema.Databases),
   schemas: list(Schema.Schemas),
   schemaIndex: Schema.Index,

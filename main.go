@@ -46,6 +46,7 @@ func main() {
 		OnShutdown:       app.shutdown,
 		Bind: []interface{}{
 			app.Connections,
+			app.Workspaces,
 			app.Schema,
 			app.Query,
 			app.Data,

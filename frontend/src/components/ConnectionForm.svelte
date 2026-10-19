@@ -1,9 +1,10 @@
 <script lang="ts">
   import { api, emptyProfile, errMsg, type Profile } from '../lib/api'
+  import { ws } from '../lib/workspace.svelte'
 
   let { profile, onsaved, oncancel }: { profile: Profile | null; onsaved: (p: Profile, connect: boolean) => void; oncancel: () => void } = $props()
 
-  let p = $state<Profile>(profile ? { ...emptyProfile(), ...profile } : emptyProfile())
+  let p = $state<Profile>(profile ? { ...emptyProfile(), ...profile } : { ...emptyProfile(), workspace: ws.workspaceId })
   let password = $state('')
   let drivers = $state<string[]>([])
   let status = $state<{ ok: boolean; msg: string } | null>(null)
@@ -58,6 +59,14 @@
         </div>
       </div>
     </div>
+    {#if ws.workspaces.length}
+      <label>Workspace
+        <select bind:value={p.workspace}>
+          <option value="">Sin workspace</option>
+          {#each ws.workspaces as w}<option value={w.id}>{w.name}</option>{/each}
+        </select>
+      </label>
+    {/if}
     <label>Motor
       <select bind:value={p.driver} onchange={onDriver}>
         {#each drivers as d}<option value={d}>{d}</option>{/each}

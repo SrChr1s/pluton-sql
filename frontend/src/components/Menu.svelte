@@ -10,6 +10,8 @@
     checked?: boolean
     color?: string
     disabled?: boolean
+    /** Línea separadora (el resto de campos se ignora). */
+    sep?: boolean
   }
 
   let { items, onclose, up = false, right = false, at }: { items: MenuItem[]; onclose: () => void; up?: boolean; right?: boolean; at?: { x: number; y: number } } = $props()
@@ -30,6 +32,7 @@
 <div class="menu" class:up class:right class:fixed={!!at} role="menu" bind:this={el}
      style:left={at ? `${Math.min(at.x, innerWidth - 240)}px` : undefined} style:top={at ? `${Math.min(at.y, innerHeight - 40 - items.length * 36)}px` : undefined}>
   {#each items as it, i}
+    {#if it.sep}<hr />{:else}
     <div class="wrap" onmouseenter={() => it.sub && (openSub = i)} onmouseleave={() => it.sub && openSub === i && (openSub = -1)} role="presentation">
       <button role="menuitem" disabled={it.disabled} aria-haspopup={it.sub ? 'menu' : undefined} aria-expanded={it.sub ? openSub === i : undefined} onclick={() => pick(it)}>
         <span class="ic">{#if it.color}<span class="dot" style:background={it.color}></span>{:else if it.icon}<Icon name={it.icon} size={15} />{/if}</span>
@@ -49,6 +52,7 @@
         </div>
       {/if}
     </div>
+    {/if}
   {/each}
 </div>
 
@@ -58,6 +62,7 @@
   .menu.up { top: auto; bottom: calc(100% + 6px); }
   .menu.right { left: auto; right: 0; }
   .wrap { position: relative; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 5px 4px; }
   .menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: none; background: transparent; border-radius: 5px; text-align: left; color: var(--text); }
   .menu button:hover:not(:disabled) { background: var(--hover); }
   .ic { width: 16px; display: inline-grid; place-items: center; color: var(--muted); }

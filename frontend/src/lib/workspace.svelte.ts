@@ -1,4 +1,4 @@
-import { api, errMsg, type Profile, type QueryResult } from './api'
+import { api, errMsg, type Profile, type QueryResult, type Workspace as WorkspaceInfo } from './api'
 import { TableState, type TableLocation } from './table.svelte'
 import { quoteIdent } from './sql'
 import type { SchemaIndex } from './sqlcomplete'
@@ -28,8 +28,21 @@ export type DataTab = { kind: 'table'; id: string; title: string; database: stri
 export type Tab = QueryTab | DataTab
 
 const STORE = 'pluton.tabs.'
+const WS_KEY = 'pluton.workspace'
+const WS_LAST = 'pluton.wsLast'
 const RECENT = 'pluton.recent'
 const RECENT_MAX = 5
+
+function readWorkspaceId(): string {
+  try { return localStorage.getItem(WS_KEY) ?? '' } catch { return '' }
+}
+
+function readLastActive(): Record<string, string> {
+  try {
+    const v = JSON.parse(localStorage.getItem(WS_LAST) ?? '{}')
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {}
+  } catch { return {} }
+}
 
 function readRecent(): string[] {
   try {
@@ -47,6 +60,11 @@ class Workspace {
   profiles = $state<Profile[]>([])
   /** Bases de datos con pool abierto, por "perfil|base". Sirve para marcar a cuáles estamos conectados. */
   private openDbs = $state<Record<string, true>>({})
+  workspaces = $state<WorkspaceInfo[]>([])
+  /** Workspace activo: filtra la lista de conexiones ("" = todas). */
+  workspaceId = $state<string>(readWorkspaceId())
+  /** Última conexión activa de cada workspace, para recuperarla al volver a él. */
+  private lastActive = $state<Record<string, string>>(readLastActive())
   /** Ids de las últimas conexiones abiertas, la más reciente primero. */
   recentIds = $state<string[]>(readRecent())
   active = $state<Profile | null>(null)
@@ -85,9 +103,57 @@ class Workspace {
     this.profiles = await api.listConnections()
   }
 
+  async loadWorkspaces() {
+    this.workspaces = await api.listWorkspaces()
+    if (this.workspaceId && !this.workspaces.some((w) => w.id === this.workspaceId)) this.saveWorkspaceId('')
+  }
+
+  private saveWorkspaceId(id: string) {
+    this.workspaceId = id
+    try { localStorage.setItem(WS_KEY, id); localStorage.setItem(WS_LAST, JSON.stringify(this.lastActive)) } catch { /* no crítico */ }
+  }
+
+  get currentWorkspace(): WorkspaceInfo | null {
+    return this.workspaces.find((w) => w.id === this.workspaceId) ?? null
+  }
+
+  /** Las conexiones del workspace activo (o todas). */
+  get visibleProfiles(): Profile[] {
+    return this.workspaceId ? this.profiles.filter((p) => p.workspace === this.workspaceId) : this.profiles
+  }
+
+  /** Cambia de workspace: recuerda la conexión activa del actual y recupera la del nuevo (sus pestañas siguen siendo las de esa conexión). */
+  selectWorkspace(id: string) {
+    if (id === this.workspaceId) return
+    this.lastActive[this.workspaceId] = this.active?.id ?? ''
+    this.saveWorkspaceId(id)
+    const target = this.visibleProfiles.find((p) => p.id === this.lastActive[id])
+    if (target) this.connect(target)
+    else this.active = null
+  }
+
+  async createWorkspace(name: string): Promise<WorkspaceInfo> {
+    const w = await api.saveWorkspace({ id: '', name } as WorkspaceInfo)
+    await this.loadWorkspaces()
+    return w
+  }
+
+  async renameWorkspace(w: WorkspaceInfo, name: string) {
+    await api.saveWorkspace({ ...w, name } as WorkspaceInfo)
+    await this.loadWorkspaces()
+  }
+
+  /** Borra el workspace; sus conexiones se conservan y quedan sin workspace. */
+  async deleteWorkspace(w: WorkspaceInfo) {
+    await api.deleteWorkspace(w.id)
+    delete this.lastActive[w.id]
+    if (this.workspaceId === w.id) this.saveWorkspaceId('')
+    await Promise.all([this.loadWorkspaces(), this.loadProfiles()])
+  }
+
   /** Las conexiones recientes que aún existen. */
   get recents(): Profile[] {
-    return this.recentIds.map((id) => this.profiles.find((p) => p.id === id)).filter((p): p is Profile => !!p)
+    return this.recentIds.map((id) => this.visibleProfiles.find((p) => p.id === id)).filter((p): p is Profile => !!p)
   }
 
   isDbOpen(profileId: string, database: string): boolean {
@@ -115,6 +181,11 @@ class Workspace {
   }
 
   connect(p: Profile) {
+    // Conectar a una conexión de otro workspace lleva a ese workspace (recordando dónde estábamos).
+    if (this.workspaceId && p.workspace !== this.workspaceId) {
+      this.lastActive[this.workspaceId] = this.active?.id ?? ''
+      this.saveWorkspaceId(p.workspace || '')
+    }
     this.active = p
     if (p.driver !== 'sqlite' && p.database) this.openDbs[`${p.id}|${p.database}`] = true
     this.recentIds = [p.id, ...this.recentIds.filter((id) => id !== p.id)].slice(0, RECENT_MAX)

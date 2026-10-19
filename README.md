@@ -96,12 +96,14 @@ make dev
     - Un CSV abierto en una hoja de cálculo puede interpretar como fórmula una celda que empiece por `=`, `+`, `-` o `@`: no abras con Excel archivos exportados de datos que no controlas.
 13. **Autocompletado:** el editor sugiere tablas, vistas y columnas de la conexión mientras escribes (o con `Ctrl+Espacio`), y entiende el contexto: tras `FROM`/`JOIN`/`INTO`/`UPDATE` ofrece tablas (las de otros esquemas cualificadas), tras `alias.` las columnas de esa tabla —aunque el alias se declare después, en el `FROM`—, y en el resto las columnas de las tablas de la consulta, indicando de cuál es cada una. Cita los nombres que lo necesitan (mayúsculas en PostgreSQL, espacios, palabras reservadas) con las comillas de cada motor. No sugiere dentro de cadenas ni comentarios. El índice se carga una vez por base de datos y se actualiza al cambiar la estructura, al ejecutar un `CREATE`/`ALTER`/`DROP` o con *Recargar esquema*. No entiende subconsultas ni CTE: ahí simplemente no sugiere.
 14. Edita una conexión con **✎** o doble clic, y elimínala con **✕**.
+15. **Workspaces:** la barra de iconos de la izquierda agrupa las conexiones guardadas (p. ej. *Producción*, *Cliente X*, *Local*). Cada workspace es un botón con su inicial y un color propio; **＋** crea uno nuevo, el icono de cuadrícula (*Todas las conexiones*) muestra todo, y con clic derecho en un workspace puedes renombrarlo o eliminarlo. Asigna cada conexión desde su formulario. Al cambiar de workspace se recuerda cuál era la conexión activa de cada uno y se recupera al volver (con sus pestañas); los pools de la conexión que dejas siguen abiertos hasta que la desconectes. Al eliminar un workspace sus conexiones no se borran: quedan sin workspace.
 
 Los resultados de una consulta se limitan a 1000 filas; la barra inferior avisa si se truncaron.
 
 ### Dónde se guardan los datos
 
 - **Conexiones:** `connections.json` en el directorio de configuración del usuario (`~/.config/pluton-sql/` en Linux, `%AppData%\pluton-sql\` en Windows). No contiene contraseñas.
+- **Workspaces:** `workspaces.json` en la misma carpeta; la pertenencia de cada conexión va en `connections.json`. El workspace activo se recuerda por usuario del webview.
 - **Historial y consultas guardadas:** `history.json` y `saved_queries.json` en la misma carpeta, con permisos `0600`. **Guardan el SQL tal cual se ejecutó**, así que pueden contener datos sensibles (por ejemplo un `INSERT` con contraseñas): el historial se limita a 500 entradas por conexión y se borra al eliminar la conexión o con **Borrar historial**.
 - **Contraseñas:** en el llavero del sistema (Secret Service en Linux, Credential Manager en Windows). En Linux necesitas un servicio de llavero activo, como GNOME Keyring o KWallet.
 

@@ -12,6 +12,7 @@ export namespace config {
 	    sslMode: string;
 	    tlsMinVersion: string;
 	    color: string;
+	    workspace: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ConnectionProfile(source);
@@ -30,6 +31,21 @@ export namespace config {
 	        this.sslMode = source["sslMode"];
 	        this.tlsMinVersion = source["tlsMinVersion"];
 	        this.color = source["color"];
+	        this.workspace = source["workspace"];
+	    }
+	}
+	export class Workspace {
+	    id: string;
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Workspace(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
 	    }
 	}
 

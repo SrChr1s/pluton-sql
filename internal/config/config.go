@@ -29,6 +29,8 @@ type ConnectionProfile struct {
 	TLSMinVersion string `json:"tlsMinVersion"`
 	// Color es la etiqueta de color de la conexión: "" (sin color) o "#rrggbb".
 	Color string `json:"color"`
+	// Workspace es el id del workspace al que pertenece ("" = ninguno).
+	Workspace string `json:"workspace"`
 }
 
 var colorRe = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
