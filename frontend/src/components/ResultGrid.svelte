@@ -19,7 +19,7 @@
 
 <div class="wrap">
   {#if running}
-    <div class="msg"><span class="spin"></span> Ejecutando…</div>
+    <div class="msg"><span class="orbit"></span> Ejecutando…</div>
   {:else if error}
     <div class="msg err" role="alert"><pre>{error}</pre></div>
   {:else if !result}
@@ -33,7 +33,7 @@
   {:else if !result.isQuery}
     <div class="msg ok">Consulta ejecutada — {result.rowsAffected} fila(s) afectada(s) en {result.durationMs} ms</div>
   {:else if result.rows.length === 0}
-    <div class="msg hint">La consulta no devolvió filas ({result.columns.length} columna(s)).</div>
+    <div class="msg hint"><Icon name="orbit" size={20} /><span>Espacio vacío: la consulta no devolvió filas ({result.columns.length} columna(s)).</span></div>
   {:else}
     <div class="scroll">
       <table>
@@ -76,7 +76,4 @@
   .msg.ok { color: var(--ok); }
   .msg.err { justify-content: flex-start; align-items: flex-start; color: var(--danger); overflow: auto; }
   pre { margin: 0; white-space: pre-wrap; font: 12.5px var(--mono); }
-  .spin { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 </style>

@@ -1,0 +1,27 @@
+<!-- Fuente del icono de la app (build/appicon.png se genera desde aquí; ver README). Mismo dibujo que Logo.svelte. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="75%"><stop offset="0" stop-color="#2a2150"/><stop offset="1" stop-color="#0a0814"/></radialGradient>
+    <radialGradient id="body" cx="36%" cy="30%" r="80%"><stop offset="0" stop-color="#f3dcc2"/><stop offset=".55" stop-color="#cf9f78"/><stop offset="1" stop-color="#7d5142"/></radialGradient>
+    <radialGradient id="shade" cx="30%" cy="26%" r="85%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#14091f" stop-opacity=".62"/></radialGradient>
+    <clipPath id="disc"><circle cx="50" cy="50" r="27"/></clipPath>
+    <clipPath id="front"><rect x="-20" y="50" width="140" height="70"/></clipPath>
+    <clipPath id="tile"><rect width="100" height="100" rx="22"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect width="100" height="100" fill="url(#bg)"/>
+    <g fill="#fff"><circle cx="14" cy="18" r=".7" opacity=".8"/><circle cx="80" cy="12" r=".5" opacity=".6"/><circle cx="88" cy="70" r=".8" opacity=".7"/><circle cx="22" cy="84" r=".6" opacity=".6"/><circle cx="60" cy="90" r=".5" opacity=".5"/><circle cx="9" cy="52" r=".5" opacity=".5"/><circle cx="72" cy="30" r=".4" opacity=".5"/><circle cx="40" cy="10" r=".5" opacity=".6"/></g>
+    <ellipse cx="50" cy="50" rx="44" ry="14" fill="none" stroke="#a99bff" stroke-opacity=".45" stroke-width="1" stroke-dasharray="2 3" transform="rotate(-24 50 50)"/>
+    <circle cx="50" cy="50" r="30" fill="#8fb3ff" fill-opacity=".16"/>
+    <circle cx="50" cy="50" r="27" fill="url(#body)"/>
+    <g clip-path="url(#disc)">
+      <path d="M48 70 C26 55 28 36 41 35 C47 35 50 39 52 43 C55 37 63 35 68 40 C74 47 67 60 48 70Z" fill="#fdf0de" fill-opacity=".92"/>
+      <ellipse cx="32" cy="58" rx="9" ry="6" fill="#5a3427" fill-opacity=".7" transform="rotate(-18 32 58)"/>
+      <ellipse cx="66" cy="62" rx="5" ry="3.2" fill="#6b4331" fill-opacity=".45"/>
+      <circle cx="50" cy="50" r="27" fill="url(#shade)"/>
+    </g>
+    <!-- Mitad delantera de la órbita: cruza por delante del planeta (la trasera queda detrás). -->
+    <g transform="rotate(-24 50 50)"><g clip-path="url(#front)"><ellipse cx="50" cy="50" rx="44" ry="14" fill="none" stroke="#a99bff" stroke-opacity=".45" stroke-width="1" stroke-dasharray="2 3"/></g></g>
+    <g transform="rotate(-24 50 50)"><circle cx="84" cy="40" r="5.5" fill="#cfcbd8" stroke="#8a869c" stroke-width=".8"/></g>
+  </g>
+</svg>

@@ -11,7 +11,11 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/linux"
 )
+
+//go:embed build/appicon.png
+var icon []byte
 
 //go:embed all:frontend/dist
 var assets embed.FS
@@ -41,7 +45,8 @@ func main() {
 		MaxWidth:         16384,
 		MaxHeight:        16384,
 		AssetServer:      &assetserver.Options{Assets: assets},
-		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		BackgroundColour: &options.RGBA{R: 8, G: 7, B: 15, A: 1},
+		Linux:            &linux.Options{Icon: icon},
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
 		Bind: []interface{}{

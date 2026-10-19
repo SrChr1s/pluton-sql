@@ -211,7 +211,7 @@
 
 <div class="tree" role="tree">
   {#if ctx}<Menu at={{ x: ctx.x, y: ctx.y }} items={ctx.items} onclose={() => (ctx = null)} />{/if}
-  {#if loading}<p class="empty">Cargando…</p>{/if}
+  {#if loading}<p class="empty"><span class="orbit"></span> Conectando…</p>{/if}
   {#if error}<p class="err">{error}</p>{/if}
   {#each dbs as db (db)}
     {@render row(0, node(db).open, node(db).loading, 'database', db, () => toggleDb(db), undefined, undefined, (schemas[db]?.length === 1 && schemas[db][0] === '') ? () => oncreate(db, '') : undefined, undefined, profile.driver !== 'sqlite' && isConnected(db), (e) => dbMenu(e, db))}

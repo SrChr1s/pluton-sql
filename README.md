@@ -125,6 +125,8 @@ docker compose --profile mssql up -d --wait   # opcional: SQL Server, que activa
 cd frontend && npm run check    # comprobación de tipos del frontend
 ```
 
+El icono de la app es `build/appicon.png`, generado desde `build/appicon.svg` (el mismo Plutón de `Logo.svelte`): si tocas el dibujo, vuelve a exportar el SVG a PNG de 1024×1024.
+
 Si cambias los métodos expuestos en `internal/service`, los bindings de `frontend/wailsjs/` se regeneran con `wails generate module -tags webkit2_41` (también lo hace `make build`).
 
 Los tests de integración usan `docker-compose.yml` (PostgreSQL 16 y MariaDB 11 en los puertos 15432 y 13306, con datos de `testdata/integration/`). Al terminar: `docker compose down`.

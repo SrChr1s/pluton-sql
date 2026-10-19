@@ -10,6 +10,7 @@
   import ConnectionForm from './components/ConnectionForm.svelte'
   import ConfirmDialog from './components/ConfirmDialog.svelte'
   import SchemaChangeDialog from './components/SchemaChangeDialog.svelte'
+  import Welcome from './components/Welcome.svelte'
   import TitleBar from './components/TitleBar.svelte'
   import Rail, { type Panel } from './components/Rail.svelte'
   import ExportDialog from './components/ExportDialog.svelte'
@@ -138,12 +139,7 @@
         {#key ws.dataTab.id}<TableView tab={ws.dataTab} />{/key}
       {/if}
     {:else}
-      <div class="welcome">
-        <Icon name="database" size={40} />
-        <h1>Pluton SQL</h1>
-        <p>{ws.profiles.length ? 'Elige una conexión en el panel lateral para empezar.' : 'Crea tu primera conexión a PostgreSQL, MySQL, SQLite o SQL Server.'}</p>
-        <button class="primary" onclick={() => (ui.connForm = { profile: null })}><Icon name="plus" size={14} /> Nueva conexión</button>
-      </div>
+      <Welcome hasConnections={ws.profiles.length > 0} onnew={() => (ui.connForm = { profile: null })} />
     {/if}
   </main>
 
@@ -183,7 +179,4 @@
   .hsplit { height: 5px; margin: -2px 0; cursor: row-resize; position: relative; z-index: 5; background: transparent; }
   .hsplit:hover, .hsplit:active { background: var(--accent); opacity: .5; }
   .results { flex: 1; min-height: 0; }
-  .welcome { margin: auto; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--muted); text-align: center; padding: 24px; }
-  .welcome h1 { margin: 4px 0 0; font-size: 22px; color: var(--text); }
-  .welcome p { margin: 0 0 8px; max-width: 360px; }
 </style>

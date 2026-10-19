@@ -76,7 +76,7 @@
       {#each shown as p (p.id)}
         {@render row(p)}
       {:else}
-        <p class="hint">{ws.visibleProfiles.length ? 'Nada coincide con el filtro.' : ws.workspaceId ? 'Este workspace no tiene conexiones.' : 'Aún no hay conexiones.'}</p>
+        <p class="hint">{ws.visibleProfiles.length ? 'Nada coincide con el filtro.' : ws.workspaceId ? 'Este workspace aún no tiene conexiones: arrastra una desde «Todas».' : 'Aún no hay conexiones. Lanza la primera.'}</p>
       {/each}
     </div>
     {#if ws.recents.length}

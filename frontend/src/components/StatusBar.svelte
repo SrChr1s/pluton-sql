@@ -72,7 +72,7 @@
   .conn { display: flex; align-items: center; gap: 8px; width: 100%; height: 100%; padding: 0 12px; border: none; border-radius: 0; background: transparent; color: inherit; font: inherit; }
   .conn:hover { background: var(--hover); }
   .left > :global(.menu) { left: 8px; }
-  .right { background: var(--bg); }
+  .right { background: var(--surface); border-left: 1px solid var(--border); }
   .name { overflow: hidden; text-overflow: ellipsis; }
   .grow { flex: 1; }
   .db { color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }

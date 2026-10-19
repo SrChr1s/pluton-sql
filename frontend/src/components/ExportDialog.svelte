@@ -99,7 +99,7 @@
         </div>
       </form>
     {:else if phase === 'running'}
-      <p class="run"><span class="spin"></span> Exportando… {rows.toLocaleString()} fila(s)</p>
+      <p class="run"><span class="orbit"></span> Exportando… {rows.toLocaleString()} fila(s)</p>
       <div class="actions"><button onclick={cancelJob}>Cancelar exportación</button></div>
     {:else if result}
       <p class="ok"><Icon name="check" size={14} /> {result.rows.toLocaleString()} fila(s) · {size(result.bytes)} · {(result.durationMs / 1000).toFixed(1)} s</p>
@@ -131,7 +131,4 @@
   .path { margin: 6px 0 0; font: 12px var(--mono); color: var(--muted); word-break: break-all; }
   .run { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
   .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
-  .spin { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 </style>

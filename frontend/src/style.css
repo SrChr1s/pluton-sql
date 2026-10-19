@@ -1,9 +1,9 @@
-/* Tokens de diseño. Oscuro por defecto; claro con data-theme="light". */
+/* Tokens de diseño: espacio profundo (violeta) por defecto; claro con data-theme="light". */
 :root {
-  --bg: #0b0b0c; --surface: #1a1a1c; --surface-2: #262628; --border: #2d2d30;
-  --text: #e2e4e9; --muted: #8e919a; --accent: #6b9dff; --accent-fg: #0a1020;
-  --accent-soft: #6b9dff24; --danger: #ff7b82; --ok: #5ec27f; --warn: #e0b050;
-  --hover: #ffffff10; --shadow: 0 8px 30px #00000099;
+  --bg: #08070f; --surface: #100e1a; --surface-2: #1a1727; --border: #28243a;
+  --text: #e8e5f2; --muted: #8f8ba6; --accent: #a99bff; --accent-fg: #120d2b;
+  --accent-soft: #a99bff24; --danger: #ff7b8f; --ok: #62d6a0; --warn: #f0b274;
+  --hover: #ffffff10; --shadow: 0 8px 30px #000000a6;
   --mono: ui-monospace, "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
   --radius: 6px;
@@ -11,10 +11,10 @@
   accent-color: var(--accent);
 }
 :root[data-theme="light"] {
-  --bg: #f4f5f8; --surface: #ffffff; --surface-2: #eceef3; --border: #d9dce4;
-  --text: #1c2230; --muted: #667085; --accent: #2f6fed; --accent-fg: #ffffff;
-  --accent-soft: #2f6fed1a; --danger: #d1383f; --ok: #1d9a55; --warn: #a8660b;
-  --hover: #0000000d; --shadow: 0 8px 30px #0000002e;
+  --bg: #f3f1fa; --surface: #ffffff; --surface-2: #ebe8f5; --border: #d9d5e8;
+  --text: #1d1a2b; --muted: #6b6783; --accent: #6a4df0; --accent-fg: #ffffff;
+  --accent-soft: #6a4df01a; --danger: #d1384f; --ok: #1d9a68; --warn: #a8620b;
+  --hover: #0000000d; --shadow: 0 8px 30px #1d1a2b33;
   color-scheme: light;
 }
 
@@ -48,3 +48,10 @@ kbd { font: 11px var(--mono); background: var(--surface-2); border: 1px solid va
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: content-box; }
+
+/* Spinner con motivo orbital: un punto que gira alrededor de otro. */
+.orbit { display: inline-block; position: relative; width: 18px; height: 18px; border: 1px solid var(--border); border-radius: 50%; animation: orbit-spin 1.4s linear infinite; flex: none; vertical-align: middle; }
+.orbit::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: #d9a77f; }
+.orbit::after { content: ""; position: absolute; top: -3px; left: 50%; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--accent); }
+@keyframes orbit-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .orbit { animation: none; } }

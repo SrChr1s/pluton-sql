@@ -105,7 +105,7 @@
     <h3 id="im-title">Importar CSV en {target.loc.table}</h3>
 
     {#if phase === 'running'}
-      <p class="run"><span class="spin"></span> Importando… {rows.toLocaleString()} fila(s)</p>
+      <p class="run"><span class="orbit"></span> Importando… {rows.toLocaleString()} fila(s)</p>
       <p class="hint">Todo se inserta en una transacción: si algo falla o cancelas, no queda nada a medias.</p>
       <div class="actions"><button onclick={() => api.importCancel(jobId)}>Cancelar importación</button></div>
     {:else}
@@ -195,7 +195,4 @@
   .err { margin: 0; color: var(--danger); white-space: pre-wrap; word-break: break-word; }
   .run { display: flex; align-items: center; gap: 10px; margin: 6px 0 0; }
   .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
-  .spin { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 </style>
