@@ -57,6 +57,11 @@ func (s *ConnectionService) Disconnect(id string) {
 	s.sess.Close(id)
 }
 
+// DisconnectDatabase cierra el pool de una sola base de datos de la conexión.
+func (s *ConnectionService) DisconnectDatabase(id, database string) {
+	s.sess.CloseDatabase(id, database)
+}
+
 func (s *ConnectionService) Delete(id string) error {
 	s.sess.Close(id)
 	if err := secrets.Delete(id); err != nil {

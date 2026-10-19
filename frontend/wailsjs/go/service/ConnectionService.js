@@ -14,6 +14,10 @@ export function Disconnect(arg1) {
   return window['go']['service']['ConnectionService']['Disconnect'](arg1);
 }
 
+export function DisconnectDatabase(arg1, arg2) {
+  return window['go']['service']['ConnectionService']['DisconnectDatabase'](arg1, arg2);
+}
+
 export function Drivers() {
   return window['go']['service']['ConnectionService']['Drivers']();
 }

@@ -8,6 +8,8 @@ export function Delete(arg1:string):Promise<void>;
 
 export function Disconnect(arg1:string):Promise<void>;
 
+export function DisconnectDatabase(arg1:string,arg2:string):Promise<void>;
+
 export function Drivers():Promise<Array<string>>;
 
 export function List():Promise<Array<config.ConnectionProfile>>;

@@ -94,6 +94,23 @@ func (m *Manager) Close(profileID string) {
 	}
 }
 
+// CloseDatabase cierra solo el pool de una base de datos del perfil. Si es la base por
+// defecto del perfil, cierra también el pool sin nombre (que apunta a ella).
+func (m *Manager) CloseDatabase(profileID, database string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	keys := []string{key(profileID, database)}
+	if p, err := m.store.Get(profileID); err == nil && database != "" && database == p.Database {
+		keys = append(keys, key(profileID, ""))
+	}
+	for _, k := range keys {
+		if e, ok := m.pools[k]; ok {
+			e.db.Close()
+			delete(m.pools, k)
+		}
+	}
+}
+
 // CloseAll cierra todos los pools.
 func (m *Manager) CloseAll() {
 	m.mu.Lock()
