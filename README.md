@@ -58,6 +58,34 @@ El binario queda en `build/bin/` (`pluton-sql` o `pluton-sql.exe`). Los drivers 
 
 Si `wails` no está en tu `PATH`: `make build WAILS=$HOME/go/bin/wails`.
 
+## Instalar
+
+### Linux
+
+Instalación de usuario, sin `sudo` (binario en `~/.local/bin`, más el icono y el lanzador de aplicaciones):
+
+```bash
+make install            # compila e instala en ~/.local
+make uninstall          # lo quita
+```
+
+Para todo el sistema: `sudo make install PREFIX=/usr/local`. Si `~/.local/bin` no está en tu `PATH`, el lanzador del menú de aplicaciones funciona igual (usa la ruta completa).
+
+Paquetes en `dist/` para repartir (requiere [nfpm](https://nfpm.goreleaser.com): `go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest`):
+
+```bash
+make package-linux      # .rpm, .deb y un .tar.gz con la estructura de /usr
+sudo dnf install dist/pluton-sql-*.rpm            # Fedora
+sudo apt install ./dist/pluton-sql_*_amd64.deb    # Debian / Ubuntu
+```
+
+Los paquetes dependen de GTK 3 y WebKitGTK 4.1 y recomiendan `gnome-keyring` para guardar las contraseñas. La versión sale de `VERSION` en el `Makefile` (`make package-linux VERSION=0.2.0`); mantenla igual que `info.productVersion` de `wails.json`.
+
+### Windows
+
+- **Portable:** `make build-windows` deja `build/bin/pluton-sql.exe`, que se ejecuta tal cual.
+- **Instalador:** `make installer-windows` genera un instalador NSIS en `build/bin/` (acceso directo, desinstalador y descarga de WebView2 si falta). Necesita [NSIS](https://nsis.sourceforge.io) (`makensis` en el `PATH`; en Fedora, `sudo dnf install mingw32-nsis`).
+
 ## Ejecutar
 
 ```bash
@@ -142,3 +170,7 @@ internal/session       pools de conexión abiertos
 internal/service       API que consume el frontend
 frontend/src           interfaz Svelte (App, componentes, lib/api.ts)
 ```
+
+## Licencia
+
+[MIT](LICENSE) © 2026 SrChr1s.

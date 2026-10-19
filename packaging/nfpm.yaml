@@ -1,0 +1,40 @@
+# Paquetes .rpm y .deb con nfpm (ver `make package-linux`). VERSION viene del Makefile.
+name: pluton-sql
+arch: amd64
+platform: linux
+version: ${VERSION}
+section: database
+priority: optional
+maintainer: SrChr1s <c.salazar.vzla@gmail.com>
+description: |
+  Administrador de bases de datos SQL de escritorio.
+  PostgreSQL, MySQL/MariaDB, SQLite y SQL Server, con explorador de esquema,
+  editor de consultas, edición de datos, exportar e importar.
+homepage: https://github.com/SrChr1s/pluton-sql
+license: MIT
+contents:
+  - src: build/bin/pluton-sql
+    dst: /usr/bin/pluton-sql
+    file_info:
+      mode: 0755
+  - src: build/linux/pluton-sql.desktop
+    dst: /usr/share/applications/pluton-sql.desktop
+  - src: build/appicon.svg
+    dst: /usr/share/icons/hicolor/scalable/apps/pluton-sql.svg
+  - src: build/linux/pluton-sql.png
+    dst: /usr/share/icons/hicolor/512x512/apps/pluton-sql.png
+  - src: LICENSE
+    dst: /usr/share/licenses/pluton-sql/LICENSE
+overrides:
+  rpm:
+    depends:
+      - webkit2gtk4.1
+      - gtk3
+    recommends:
+      - gnome-keyring
+  deb:
+    depends:
+      - libwebkit2gtk-4.1-0
+      - libgtk-3-0
+    recommends:
+      - gnome-keyring

@@ -9,5 +9,12 @@
   "author": {
     "name": "Chris",
     "email": "c.salazar.vzla@gmail.com"
+  },
+  "info": {
+    "companyName": "SrChr1s",
+    "productName": "Pluton SQL",
+    "productVersion": "0.1.0",
+    "copyright": "© 2026 SrChr1s",
+    "comments": "Administrador de bases de datos SQL"
   }
 }

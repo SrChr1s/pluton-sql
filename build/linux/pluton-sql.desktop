@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Pluton SQL
+GenericName=Administrador de bases de datos
+Comment=Administra PostgreSQL, MySQL/MariaDB, SQLite y SQL Server
+Exec=pluton-sql
+Icon=pluton-sql
+Terminal=false
+Categories=Development;Database;
+Keywords=sql;database;base de datos;postgres;mysql;mariadb;sqlite;sqlserver;mssql;
+StartupWMClass=pluton-sql

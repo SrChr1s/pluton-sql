@@ -46,9 +46,11 @@ func main() {
 		MaxHeight:        16384,
 		AssetServer:      &assetserver.Options{Assets: assets},
 		BackgroundColour: &options.RGBA{R: 8, G: 7, B: 15, A: 1},
-		Linux:            &linux.Options{Icon: icon},
-		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
+		// ProgramName es el app_id en Wayland: debe coincidir con el .desktop (pluton-sql.desktop) para que
+		// el lanzador y la barra de tareas muestren el icono y agrupen la ventana.
+		Linux:      &linux.Options{Icon: icon, ProgramName: "pluton-sql"},
+		OnStartup:  app.startup,
+		OnShutdown: app.shutdown,
 		Bind: []interface{}{
 			app.Connections,
 			app.Workspaces,
