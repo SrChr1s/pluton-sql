@@ -33,6 +33,9 @@ func main() {
 		Height:    800,
 		MinWidth:  900,
 		MinHeight: 600,
+		// En Linux (sobre todo en compositores de mosaico como niri) la ventana puede no traer
+		// barra de título ni botón de cerrar, así que la app dibuja la suya (TitleBar.svelte).
+		Frameless: runtime.GOOS == "linux",
 		// En Linux, con 0 Wails fija el máximo al tamaño del monitor donde arrancó
 		// y la ventana no crece al moverla a otro más grande.
 		MaxWidth:         16384,

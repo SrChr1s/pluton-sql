@@ -2,6 +2,7 @@
   import Icon from './Icon.svelte'
   import SchemaTree from './SchemaTree.svelte'
   import HistoryPanel from './HistoryPanel.svelte'
+  import Menu from './Menu.svelte'
   import { ws } from '../lib/workspace.svelte'
   import { ui } from '../lib/ui.svelte'
   import type { Profile } from '../lib/api'
@@ -11,6 +12,16 @@
   let filter = $state('')
   let connFilter = $state('')
   let reloads = $state(0)
+  let count = $state(0)
+  const canReload = $derived(!!ws.active && ws.hasOpenDb(ws.active))
+  let expanded = $state(false)
+  let tree = $state<{ collapseAll: () => void; expandAll: (d: string) => Promise<void>; defaultTarget: (d: string) => Promise<{ database: string; schema: string } | null> }>()
+  let addMenu = $state(false)
+
+  async function newTable() {
+    const t = await tree?.defaultTarget(ws.tab?.database ?? '')
+    if (t && ws.active) ui.openSchema({ profile: ws.active.id, database: t.database, schema: t.schema, table: '' }, 'create_table')
+  }
 
   const shown = $derived(ws.profiles.filter((p) => p.name.toLowerCase().includes(connFilter.trim().toLowerCase())))
   const base = (path: string) => path.split(/[\\/]/).pop() ?? path
@@ -79,16 +90,32 @@
       <div class="top head">
         <Icon name="server" size={14} />
         <span class="cname" title={ws.active.name}>{ws.active.name}</span>
-        <button class="ghost icon" title="Recargar esquema" aria-label="Recargar esquema" onclick={() => { reloads++; ws.invalidateIndex() }}><Icon name="refresh" size={14} /></button>
       </div>
       <label class="search">
         <input placeholder="Filtrar tablas…" bind:value={filter} aria-label="Filtrar tablas" />
         {#if filter}<button class="ghost icon" aria-label="Limpiar filtro" onclick={() => (filter = '')}><Icon name="x" size={12} /></button>{/if}
       </label>
-      <div class="label">Entidades</div>
+      <div class="label ent">
+        <span>Entidades <span class="count">{count}</span></span>
+        <span class="tools">
+          <button class="ghost icon" title={expanded ? 'Contraer todo' : 'Expandir todo'} aria-label={expanded ? 'Contraer todo' : 'Expandir todo'} onclick={() => (expanded ? tree?.collapseAll() : void tree?.expandAll(ws.tab?.database ?? ''))}><Icon name={expanded ? 'collapse' : 'chevrons'} size={14} /></button>
+          <button class="ghost icon" title={canReload ? 'Recargar esquema' : 'Recargar esquema (abre antes una base de datos)'} aria-label="Recargar esquema" disabled={!canReload} onclick={() => { reloads++; ws.invalidateIndex() }}><Icon name="refresh" size={14} /></button>
+          <span class="addwrap">
+            <button class="ghost icon" title="Nuevo…" aria-label="Nuevo…" aria-haspopup="menu" aria-expanded={addMenu} onpointerdown={(e) => e.stopPropagation()} onclick={() => (addMenu = !addMenu)}>
+              <Icon name="plus" size={14} /><Icon name="down" size={10} />
+            </button>
+            {#if addMenu}
+              <Menu right onclose={() => (addMenu = false)} items={[
+                { label: 'Nueva tabla', icon: 'table', run: () => void newTable() },
+                { label: 'Nueva consulta', icon: 'sql', run: () => { ws.newTab() } },
+              ]} />
+            {/if}
+          </span>
+        </span>
+      </div>
       <div class="scroll">
         {#key ws.active.id + ':' + reloads + ':' + ws.schemaVersion}
-          <SchemaTree profile={ws.active} {filter} onopen={(d) => ws.setDatabase(d)} ontable={(d, s, t) => ws.openTable(d, s, t)} onstructure={(d, s, t) => ws.openTable(d, s, t, 'structure')}
+          <SchemaTree bind:this={tree} bind:count bind:expanded profile={ws.active} {filter} onopen={(d) => ws.setDatabase(d)} ontable={(d, s, t) => ws.openTable(d, s, t)} onstructure={(d, s, t) => ws.openTable(d, s, t, 'structure')}
             oncreate={(d, s) => ui.openSchema({ profile: ws.active!.id, database: d, schema: s, table: '' }, 'create_table')} />
         {/key}
       </div>
@@ -106,6 +133,10 @@
   .head { display: flex; align-items: center; gap: 8px; color: var(--muted); padding: 8px 8px 6px 12px; }
   .cname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-weight: 500; }
   .label { padding: 10px 12px 4px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text); }
+  .label.ent { display: flex; align-items: center; justify-content: space-between; padding-right: 8px; }
+  .tools { display: flex; align-items: center; gap: 2px; text-transform: none; }
+  .tools button { padding: 3px; color: var(--muted); display: inline-flex; align-items: center; gap: 1px; }
+  .addwrap { position: relative; display: inline-flex; }
   .label.first { padding-top: 12px; }
   .count { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 8px; background: var(--surface-2); color: var(--muted); font-weight: 600; }
   .search { display: flex; align-items: center; margin: 0 10px 2px; padding: 0 4px 0 0; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }

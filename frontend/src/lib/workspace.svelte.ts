@@ -45,6 +45,8 @@ export function selectFrom(driver: string, schema: string, table: string, limit 
 
 class Workspace {
   profiles = $state<Profile[]>([])
+  /** Bases de datos con pool abierto, por "perfil|base". Sirve para marcar a cuáles estamos conectados. */
+  private openDbs = $state<Record<string, true>>({})
   /** Ids de las últimas conexiones abiertas, la más reciente primero. */
   recentIds = $state<string[]>(readRecent())
   active = $state<Profile | null>(null)
@@ -88,8 +90,33 @@ class Workspace {
     return this.recentIds.map((id) => this.profiles.find((p) => p.id === id)).filter((p): p is Profile => !!p)
   }
 
+  isDbOpen(profileId: string, database: string): boolean {
+    return !!this.openDbs[`${profileId}|${database}`]
+  }
+
+  /** Hay al menos una base de datos abierta en la conexión (en SQLite, la única base cuenta siempre). */
+  hasOpenDb(p: Profile): boolean {
+    return p.driver === 'sqlite' || Object.keys(this.openDbs).some((k) => k.startsWith(`${p.id}|`))
+  }
+
+  markDbOpen(database: string) {
+    if (this.active && database) this.openDbs[`${this.active.id}|${database}`] = true
+  }
+
+  /** Cierra el pool de una sola base de datos. En SQLite (una sola base) equivale a desconectar. */
+  async disconnectDatabase(database: string) {
+    const p = this.active
+    if (!p) return
+    if (p.driver === 'sqlite') return this.disconnect()
+    await api.disconnectDatabase(p.id, database)
+    delete this.openDbs[`${p.id}|${database}`]
+    delete this.indexes[this.indexKey(database)]
+    this.resetTabDatabases(p.id, database)
+  }
+
   connect(p: Profile) {
     this.active = p
+    if (p.driver !== 'sqlite' && p.database) this.openDbs[`${p.id}|${p.database}`] = true
     this.recentIds = [p.id, ...this.recentIds.filter((id) => id !== p.id)].slice(0, RECENT_MAX)
     try { localStorage.setItem(RECENT, JSON.stringify(this.recentIds)) } catch { /* no crítico */ }
     if (!this.tabsByProfile[p.id]) {
@@ -105,7 +132,16 @@ class Workspace {
     if (!p) return
     this.active = null
     for (const k of Object.keys(this.indexes)) if (k.startsWith(`${p.id}|`)) delete this.indexes[k]
+    for (const k of Object.keys(this.openDbs)) if (k.startsWith(`${p.id}|`)) delete this.openDbs[k]
+    this.resetTabDatabases(p.id)
     await api.disconnectConnection(p.id)
+  }
+
+  /** Las pestañas de consulta que apuntaban a `database` (o a todas, si no se indica) vuelven a la base por defecto. */
+  private resetTabDatabases(profileId: string, database?: string) {
+    for (const t of this.tabsByProfile[profileId] ?? []) {
+      if (t.kind === 'query' && (database === undefined || t.database === database)) t.database = ''
+    }
   }
 
   private add<T extends Tab>(tab: T): T {
@@ -181,6 +217,7 @@ class Workspace {
     if (!t || !p || t.running) return
     const q = text ?? t.sql
     if (!q.trim()) return
+    this.markDbOpen(t.database)
     t.running = true
     t.error = ''
     t.queryId = crypto.randomUUID()
@@ -248,6 +285,7 @@ class Workspace {
       void open.state.setMode(mode)
       return
     }
+    this.markDbOpen(database)
     const state = new TableState({ profile: p.id, database, schema, table })
     const tab = this.add<DataTab>({ kind: 'table', id: crypto.randomUUID(), title: table, database, state })
     if (mode === 'structure') void tab.state.setMode('structure')
@@ -264,12 +302,17 @@ class Workspace {
 
   /** Carga el índice si falta. El autocompletado es opcional: un fallo no molesta, solo no hay sugerencias. */
   async ensureIndex(database: string) {
-    if (!this.active) return
+    const p = this.active
+    if (!p) return
+    // Cargar el índice abre el pool de esa base: no se hace con una base que el usuario desconectó.
+    // Se reabre sola al ejecutar algo en ella (run) o al abrirla en el árbol.
+    const target = database || p.database
+    if (p.driver !== 'sqlite' && target && !this.isDbOpen(p.id, target)) return
     const key = this.indexKey(database)
     if (this.indexes[key]) return
     this.indexes[key] = 'loading'
     try {
-      this.indexes[key] = await api.schemaIndex(this.active.id, database)
+      this.indexes[key] = await api.schemaIndex(p.id, database)
     } catch {
       this.indexes[key] = 'error'
     }
@@ -312,6 +355,7 @@ class Workspace {
   }
 
   setDatabase(database: string) {
+    this.markDbOpen(database)
     if (this.queryTab) this.queryTab.database = database
   }
 
@@ -336,7 +380,7 @@ class Workspace {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE + profileId) ?? '[]') as Pick<QueryTab, 'title' | 'sql' | 'database' | 'filePath' | 'savedSql' | 'crlf'>[]
       return raw.map((r): QueryTab => ({
-        kind: 'query', id: crypto.randomUUID(), title: r.title, sql: r.sql, database: r.database ?? '',
+        kind: 'query', id: crypto.randomUUID(), title: r.title, sql: r.sql, database: '', // se entra siempre a la base del perfil, no a la última usada
         result: null, error: '', running: false, queryId: '',
         filePath: r.filePath ?? '', savedSql: r.savedSql ?? '', crlf: r.crlf ?? false, lastSql: '',
       }))

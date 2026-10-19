@@ -1,4 +1,4 @@
-import type { TableStructure } from './api'
+import type { Profile, TableStructure } from './api'
 import type { TableLocation } from './table.svelte'
 
 /** Diálogos propios: los confirm()/alert() nativos no son fiables en el webview. */
@@ -17,6 +17,8 @@ export type Toast = { id: number; msg: string; kind: 'ok' | 'err' }
 export type PromptOptions = { title: string; label: string; value?: string; confirmLabel?: string }
 
 class UI {
+  /** Formulario de conexión abierto en el área principal (profile null = nueva). */
+  connForm = $state<{ profile: Profile | null } | null>(null)
   exporting = $state<ExportSource | null>(null)
   importing = $state<ImportTarget | null>(null)
   toasts = $state<Toast[]>([])

@@ -47,6 +47,7 @@ export const api = {
   saveConnection: Conn.Save,
   deleteConnection: Conn.Delete,
   disconnectConnection: Conn.Disconnect,
+  disconnectDatabase: Conn.DisconnectDatabase,
   testConnection: Conn.Test,
   databases: list(Schema.Databases),
   schemas: list(Schema.Schemas),

@@ -2,6 +2,12 @@
   // Iconos de trazo (estilo Lucide). Cada valor son uno o varios paths del viewBox 24x24.
   const icons: Record<string, string[]> = {
     power: ['M12 2v10', 'M18.4 6.6a9 9 0 1 1-12.8 0'],
+    collapse: ['M7 20l5-5 5 5', 'M7 4l5 5 5-5'],
+    chevrons: ['M7 15l5 5 5-5', 'M7 9l5-5 5 5'],
+    link: ['M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7', 'M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7'],
+    switch: ['M17 3l4 4-4 4', 'M3 7h18', 'M7 21l-4-4 4-4', 'M21 17H3'],
+    minus: ['M5 12h14'],
+    maximize: ['M5 5h14v14H5z'],
     plus: ['M12 5v14', 'M5 12h14'],
     x: ['M18 6 6 18', 'M6 6l12 12'],
     play: ['M7 4l13 8-13 8z'],

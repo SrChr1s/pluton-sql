@@ -80,7 +80,7 @@ make dev
 1. Pulsa **＋** en el panel *Conexiones* para crear una conexión: nombre, motor, host, puerto, usuario, contraseña y base de datos. Para SQLite, indica la ruta del archivo `.db`.
 2. Usa **Probar** para verificar los datos y **Guardar** para guardarla.
 3. Haz clic en una conexión para activarla. El árbol de esquema se carga bajo demanda: base de datos → esquema → tabla → columnas.
-4. Doble clic en una tabla abre sus datos en una pestaña editable: paginación, orden (clic en la cabecera), filtro `WHERE` y recuento (**Contar**). **SQL** abre un `SELECT` de esa tabla como consulta.
+4. Un clic en una tabla del árbol abre sus datos en una pestaña editable (la flecha de la izquierda despliega sus columnas): paginación, orden (clic en la cabecera), filtro `WHERE` y recuento (**Contar**). **SQL** abre un `SELECT` de esa tabla como consulta.
 5. Para editar datos: doble clic (o `Enter`) en una celda, `Tab` pasa a la siguiente, `Esc` cancela y el botón **NULL** pone el valor nulo. **+ Fila** añade una fila nueva (las columnas que dejes vacías usan su valor por defecto) y el icono de papelera marca una fila para borrar.
    Nada se escribe hasta pulsar **Aplicar** (`Ctrl+S`): todos los cambios van en **una sola transacción**, y si uno falla no se aplica ninguno. **Descartar** los deshace. Al cambiar de página, orden o filtro, o al cerrar la pestaña con cambios pendientes, pide confirmación.
    Las vistas son de solo lectura. Si una tabla no tiene clave primaria, las filas se identifican por todas sus columnas y cada cambio debe afectar **exactamente una fila**; con filas idénticas se rechaza. Las columnas binarias no son editables.

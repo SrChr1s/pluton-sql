@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import Icon from './components/Icon.svelte'
   import Sidebar from './components/Sidebar.svelte'
   import TabBar from './components/TabBar.svelte'
@@ -9,6 +10,7 @@
   import ConnectionForm from './components/ConnectionForm.svelte'
   import ConfirmDialog from './components/ConfirmDialog.svelte'
   import SchemaChangeDialog from './components/SchemaChangeDialog.svelte'
+  import TitleBar from './components/TitleBar.svelte'
   import Rail, { type Panel } from './components/Rail.svelte'
   import ExportDialog from './components/ExportDialog.svelte'
   import ImportDialog from './components/ImportDialog.svelte'
@@ -17,11 +19,11 @@
   import { ui } from './lib/ui.svelte'
   import { ws } from './lib/workspace.svelte'
   import type { Profile } from './lib/api'
+  import { Environment } from '../wailsjs/runtime/runtime'
 
   const LAYOUT = 'pluton.layout'
   const saved = (() => { try { return JSON.parse(localStorage.getItem(LAYOUT) ?? '{}') } catch { return {} } })()
 
-  let form = $state<{ profile: Profile | null } | null>(null)
   let sidebarW = $state<number>(saved.sidebarW ?? 280)
   let sidebarOpen = $state<boolean>(saved.sidebarOpen ?? true)
   let editorPct = $state<number>(saved.editorPct ?? 42)
@@ -30,6 +32,14 @@
   const shownPanel = $derived<Panel>(ws.active ? panel : 'connections')
 
   ws.loadProfiles()
+
+  // Al cambiar de conexión activa (también desde el menú de la barra inferior) se muestran sus entidades.
+  const activeId = $derived(ws.active?.id)
+  $effect(() => { if (activeId) untrack(() => { panel = 'entities'; ui.connForm = null }) })
+
+  // La barra de título propia solo hace falta en Linux (la ventana va sin marco).
+  let customBar = $state(false)
+  Environment().then((e) => (customBar = e.platform === 'linux')).catch(() => { /* fuera de Wails */ })
 
   // Carga el índice de autocompletado de la base de datos de la pestaña de consulta activa.
   $effect(() => { if (ws.queryTab) void ws.ensureIndex(ws.queryTab.database) })
@@ -49,7 +59,7 @@
   function onkeydown(e: KeyboardEvent) {
     const mod = e.ctrlKey || e.metaKey
     const k = e.key.toLowerCase()
-    if (form) return
+    if (ui.connForm) return
     if (mod && k === 't') { e.preventDefault(); ws.newTab() }
     else if (mod && k === 'w') { e.preventDefault(); if (ws.tab) void ws.close(ws.tab.id) }
     else if (mod && k === 'b') { e.preventDefault(); sidebarOpen = !sidebarOpen }
@@ -80,21 +90,22 @@
 
 <svelte:window {onkeydown} />
 
-<div class="app" style:grid-template-columns="48px {sidebarOpen ? sidebarW : 0}px 1fr">
+<div class="app" style:grid-template-columns="48px {sidebarOpen ? sidebarW : 0}px 1fr" style:grid-template-rows="{customBar ? 32 : 0}px 1fr 28px">
+  {#if customBar}<div class="titlebar"><TitleBar /></div>{/if}
   <div class="rail"><Rail panel={shownPanel} onselect={(p) => { panel = p; sidebarOpen = true }} /></div>
   {#if sidebarOpen}
     <div class="side">
-      <Sidebar panel={shownPanel} onnew={() => (form = { profile: null })} onedit={(p) => (form = { profile: p })}
-        onconnect={() => { panel = 'entities'; form = null }} />
+      <Sidebar panel={shownPanel} onnew={() => (ui.connForm = { profile: null })} onedit={(p) => (ui.connForm = { profile: p })}
+        onconnect={() => { panel = 'entities'; ui.connForm = null }} />
       <div class="vsplit" role="separator" aria-orientation="vertical" aria-label="Redimensionar panel lateral" onpointerdown={(e) => drag(e, 'x')}></div>
     </div>
   {/if}
 
   <main>
-    {#if form}
-      <ConnectionForm profile={form.profile} oncancel={() => (form = null)}
+    {#if ui.connForm}
+      <ConnectionForm profile={ui.connForm.profile} oncancel={() => (ui.connForm = null)}
         onsaved={async (p, connect) => {
-          form = null
+          ui.connForm = null
           await ws.loadProfiles()
           if (connect) { ws.connect(p); panel = 'entities' }
           else if (ws.active?.id === p.id) ws.active = ws.profiles.find((x) => x.id === p.id) ?? null // datos nuevos; se reconecta al usarla
@@ -130,7 +141,7 @@
         <Icon name="database" size={40} />
         <h1>Pluton SQL</h1>
         <p>{ws.profiles.length ? 'Elige una conexión en el panel lateral para empezar.' : 'Crea tu primera conexión a PostgreSQL, MySQL, SQLite o SQL Server.'}</p>
-        <button class="primary" onclick={() => (form = { profile: null })}><Icon name="plus" size={14} /> Nueva conexión</button>
+        <button class="primary" onclick={() => (ui.connForm = { profile: null })}><Icon name="plus" size={14} /> Nueva conexión</button>
       </div>
     {/if}
   </main>
@@ -152,14 +163,15 @@
 <Toasts />
 
 <style>
-  .app { display: grid; grid-template-rows: 1fr 28px; height: 100%; background: var(--bg); }
-  .rail { grid-column: 1; grid-row: 1; min-height: 0; }
-  .side { grid-column: 2; grid-row: 1; min-height: 0; min-width: 0; position: relative; }
+  .app { display: grid; height: 100%; background: var(--bg); }
+  .titlebar { grid-column: 1 / -1; grid-row: 1; }
+  .rail { grid-column: 1; grid-row: 2; min-height: 0; }
+  .side { grid-column: 2; grid-row: 2; min-height: 0; min-width: 0; position: relative; }
   .vsplit { position: absolute; top: 0; right: 0; bottom: 0; width: 4px; cursor: col-resize; z-index: 5; }
   .vsplit:hover, .vsplit:active { background: var(--accent); opacity: .5; }
-  main { grid-column: 3; grid-row: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
-  .app > :global(footer .left) { grid-column: 1 / 3; grid-row: 2; }
-  .app > :global(footer .right) { grid-column: 3; grid-row: 2; }
+  main { grid-column: 3; grid-row: 2; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
+  .app > :global(footer .left) { grid-column: 1 / 3; grid-row: 3; }
+  .app > :global(footer .right) { grid-column: 3; grid-row: 3; }
   .work { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   .editor { min-height: 60px; position: relative; background: var(--surface); }
   .fab { position: absolute; right: 18px; bottom: 10px; display: flex; gap: 8px; z-index: 3; }

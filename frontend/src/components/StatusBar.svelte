@@ -2,10 +2,28 @@
   import Icon from './Icon.svelte'
   import { ws } from '../lib/workspace.svelte'
   import { ui } from '../lib/ui.svelte'
+  import Menu, { type MenuItem } from './Menu.svelte'
 
   const q = $derived(ws.queryTab)
   const r = $derived(q?.result)
   const dt = $derived(ws.dataTab?.state)
+
+  // Base de datos de la pestaña (o la del perfil) y, si es una tabla, su nombre: "bd › tabla".
+  const dbName = $derived(ws.tab?.database || (ws.active?.driver === 'sqlite' ? 'main' : ws.active?.database) || '')
+  const tableName = $derived(ws.dataTab?.state.loc.table ?? '')
+
+  let menuOpen = $state(false)
+  const menuItems = $derived<MenuItem[]>([
+    { label: 'Desconectar de la conexión', icon: 'power', run: () => void ws.disconnect() },
+    ...(dbName && ws.active && ws.active.driver !== 'sqlite' && ws.isDbOpen(ws.active.id, dbName)
+      ? [{ label: `Desconectar de ${dbName}`, icon: 'power', run: () => void ws.disconnectDatabase(dbName) }]
+      : []),
+    { label: 'Editar conexión', icon: 'pencil', run: () => { if (ws.active) ui.connForm = { profile: ws.active } } },
+    {
+      label: 'Cambiar de conexión', icon: 'switch',
+      sub: ws.profiles.map((p) => ({ label: p.name, color: p.color || undefined, checked: p.id === ws.active?.id, run: () => ws.connect(p) })),
+    },
+  ])
 
   function exportQuery() {
     if (!q || !ws.active) return
@@ -16,10 +34,14 @@
 <footer>
   <div class="left" style:box-shadow={ws.active?.color ? `inset 3px 0 ${ws.active.color}` : undefined}>
     {#if ws.active}
-      <Icon name="database" size={13} />
-      <span class="name" title={ws.active.name}>{ws.tab?.database || ws.active.name}</span>
-      <span class="grow"></span>
-      <span class="drv">{ws.active.driver}</span>
+      <button class="conn" aria-haspopup="menu" aria-expanded={menuOpen} title="Opciones de la conexión" onpointerdown={(e) => e.stopPropagation()} onclick={() => (menuOpen = !menuOpen)}>
+        <Icon name="link" size={14} />
+        <span class="name" title="{ws.active.name}{dbName ? ` — ${dbName}` : ''}">{dbName || ws.active.name}</span>
+        {#if tableName}<span class="db" title="Tabla de la pestaña actual">› {tableName}</span>{/if}
+        <span class="grow"></span>
+        <span class="drv">{ws.active.driver}</span>
+      </button>
+      {#if menuOpen}<Menu items={menuItems} up onclose={() => (menuOpen = false)} />{/if}
     {:else}
       <span class="name">Sin conexión</span>
     {/if}
@@ -46,10 +68,14 @@
 <style>
   footer { display: contents; }
   .left, .right { display: flex; align-items: center; gap: 8px; height: 100%; padding: 0 12px; font-size: 12px; color: var(--muted); min-width: 0; white-space: nowrap; }
-  .left { background: var(--surface); color: var(--text); font-weight: 500; }
+  .left { background: var(--surface); color: var(--text); font-weight: 500; position: relative; padding: 0; }
+  .conn { display: flex; align-items: center; gap: 8px; width: 100%; height: 100%; padding: 0 12px; border: none; border-radius: 0; background: transparent; color: inherit; font: inherit; }
+  .conn:hover { background: var(--hover); }
+  .left > :global(.menu) { left: 8px; }
   .right { background: var(--bg); }
   .name { overflow: hidden; text-overflow: ellipsis; }
   .grow { flex: 1; }
+  .db { color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
   .drv { font-weight: 400; color: var(--muted); }
   .right button { padding: 3px 8px; font-size: 12px; }
 </style>
