@@ -138,12 +138,18 @@ func readRows(rows *sql.Rows, res *QueryResult, limit int) error {
 	return rows.Err()
 }
 
+// blobPreview son los bytes de un valor binario que se envían a la interfaz; el resto se recorta.
+const blobPreview = 64
+
 // normalize convierte valores de BD a algo serializable a JSON sin pérdida.
 func normalize(v any) any {
 	switch x := v.(type) {
 	case []byte:
 		if utf8.Valid(x) {
 			return string(x)
+		}
+		if len(x) > blobPreview { // una imagen entera en hex (varios MB) congela la rejilla
+			return "0x" + hex.EncodeToString(x[:blobPreview]) + "… (" + itoa(int64(len(x))) + " bytes)"
 		}
 		return "0x" + hex.EncodeToString(x)
 	case time.Time:

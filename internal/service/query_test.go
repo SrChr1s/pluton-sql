@@ -1,6 +1,9 @@
 package service
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestReturnsRows(t *testing.T) {
 	cases := map[string]bool{
@@ -26,6 +29,11 @@ func TestNormalize(t *testing.T) {
 	}
 	if normalize([]byte{0xff, 0x00}) != "0xff00" {
 		t.Error("bytes binarios")
+	}
+	big := make([]byte, 1000)
+	big[0] = 0xff
+	if got := normalize(big).(string); len(got) > 2+2*blobPreview+30 || !strings.HasSuffix(got, "(1000 bytes)") {
+		t.Errorf("blob grande sin recortar: %d caracteres", len(got))
 	}
 	if normalize(int64(1)<<60) != "1152921504606846976" {
 		t.Error("int64 grande")
