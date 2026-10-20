@@ -150,7 +150,7 @@
 {#snippet tableRows(s: string, depth: number)}
   {#each visible(tables[s]) as t (t.name)}
     {@const k = `${s}/${t.name}`}
-    {@render row(depth, node(k).open, node(k).loading, t.type === 'view' ? 'view' : 'table', t.name, () => { ontable(db, s, t.name); if (!node(k).open) void toggleTable(s, t.name) }, undefined, () => onstructure(db, s, t.name), undefined, () => toggleTable(s, t.name), (e) => tableMenu(e, s, t))}
+    {@render row(depth, node(k).open, node(k).loading, t.type === 'view' ? 'view' : 'table', t.name, () => { ontable(db, s, t.name); void toggleTable(s, t.name) }, undefined, () => onstructure(db, s, t.name), undefined, () => toggleTable(s, t.name), (e) => tableMenu(e, s, t))}
     {#if node(k).open}
       {#each columns[k] ?? [] as c (c.name)}
         <div class="col" style:padding-left="{8 + (depth + 1) * 14 + 16}px" title="{c.name} {c.type}{c.nullable ? '' : ' NOT NULL'}{c.default ? ' DEFAULT ' + c.default : ''}">
