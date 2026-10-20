@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
   import SchemaTree from './SchemaTree.svelte'
+  import DbSelect from './DbSelect.svelte'
   import HistoryPanel from './HistoryPanel.svelte'
   import Menu from './Menu.svelte'
   import { ws } from '../lib/workspace.svelte'
@@ -13,13 +14,13 @@
   let connFilter = $state('')
   let reloads = $state(0)
   let count = $state(0)
-  const canReload = $derived(!!ws.active && ws.hasOpenDb(ws.active))
+  const canReload = $derived(!!ws.active && !!ws.treeDb && ws.hasOpenDb(ws.active))
   let expanded = $state(false)
-  let tree = $state<{ collapseAll: () => void; expandAll: (d: string) => Promise<void>; defaultTarget: (d: string) => Promise<{ database: string; schema: string } | null> }>()
+  let tree = $state<{ collapseAll: () => void; expandAll: () => Promise<void>; defaultTarget: () => { database: string; schema: string } | null }>()
   let addMenu = $state(false)
 
-  async function newTable() {
-    const t = await tree?.defaultTarget(ws.tab?.database ?? '')
+  function newTable() {
+    const t = tree?.defaultTarget()
     if (t && ws.active) ui.openSchema({ profile: ws.active.id, database: t.database, schema: t.schema, table: '' }, 'create_table')
   }
 
@@ -93,6 +94,7 @@
         <Icon name="server" size={14} />
         <span class="cname" title={ws.active.name}>{ws.active.name}</span>
       </div>
+      <DbSelect />
       <label class="search">
         <input placeholder="Filtrar tablas…" bind:value={filter} aria-label="Filtrar tablas" />
         {#if filter}<button class="ghost icon" aria-label="Limpiar filtro" onclick={() => (filter = '')}><Icon name="x" size={12} /></button>{/if}
@@ -100,15 +102,15 @@
       <div class="label ent">
         <span>Entidades <span class="count">{count}</span></span>
         <span class="tools">
-          <button class="ghost icon" title={expanded ? 'Contraer todo' : 'Expandir todo'} aria-label={expanded ? 'Contraer todo' : 'Expandir todo'} onclick={() => (expanded ? tree?.collapseAll() : void tree?.expandAll(ws.tab?.database ?? ''))}><Icon name={expanded ? 'collapse' : 'chevrons'} size={14} /></button>
-          <button class="ghost icon" title={canReload ? 'Recargar esquema' : 'Recargar esquema (abre antes una base de datos)'} aria-label="Recargar esquema" disabled={!canReload} onclick={() => { reloads++; ws.invalidateIndex() }}><Icon name="refresh" size={14} /></button>
+          <button class="ghost icon" title={expanded ? 'Contraer todo' : 'Expandir todo'} aria-label={expanded ? 'Contraer todo' : 'Expandir todo'} onclick={() => (expanded ? tree?.collapseAll() : void tree?.expandAll())}><Icon name={expanded ? 'collapse' : 'chevrons'} size={14} /></button>
+          <button class="ghost icon" title={canReload ? 'Recargar esquema' : 'Recargar esquema (elige antes una base de datos)'} aria-label="Recargar esquema" disabled={!canReload} onclick={() => { reloads++; ws.invalidateIndex() }}><Icon name="refresh" size={14} /></button>
           <span class="addwrap">
             <button class="ghost icon" title="Nuevo…" aria-label="Nuevo…" aria-haspopup="menu" aria-expanded={addMenu} onpointerdown={(e) => e.stopPropagation()} onclick={() => (addMenu = !addMenu)}>
               <Icon name="plus" size={14} /><Icon name="down" size={10} />
             </button>
             {#if addMenu}
               <Menu right onclose={() => (addMenu = false)} items={[
-                { label: 'Nueva tabla', icon: 'table', run: () => void newTable() },
+                { label: 'Nueva tabla', icon: 'table', run: newTable },
                 { label: 'Nueva consulta', icon: 'sql', run: () => { ws.newTab() } },
               ]} />
             {/if}
@@ -116,8 +118,8 @@
         </span>
       </div>
       <div class="scroll">
-        {#key ws.active.id + ':' + reloads + ':' + ws.schemaVersion}
-          <SchemaTree bind:this={tree} bind:count bind:expanded profile={ws.active} {filter} onopen={(d) => ws.setDatabase(d)} ontable={(d, s, t) => ws.openTable(d, s, t)} onstructure={(d, s, t) => ws.openTable(d, s, t, 'structure')}
+        {#key ws.active.id + ':' + ws.treeDb + ':' + reloads + ':' + ws.schemaVersion}
+          <SchemaTree bind:this={tree} bind:count bind:expanded profile={ws.active} database={ws.treeDb} {filter} ontable={(d, s, t) => ws.openTable(d, s, t)} onstructure={(d, s, t) => ws.openTable(d, s, t, 'structure')}
             oncreate={(d, s) => ui.openSchema({ profile: ws.active!.id, database: d, schema: s, table: '' }, 'create_table')} />
         {/key}
       </div>

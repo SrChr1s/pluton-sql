@@ -60,6 +60,10 @@ class Workspace {
   profiles = $state<Profile[]>([])
   /** Bases de datos con pool abierto, por "perfil|base". Sirve para marcar a cuáles estamos conectados. */
   private openDbs = $state<Record<string, true>>({})
+  /** Bases de datos de cada conexión (para el selector de la barra de pestañas). */
+  private dbLists = $state<Record<string, string[]>>({})
+  /** Base de datos que muestra el árbol de entidades en cada conexión (una sola a la vez). */
+  private treeDbs = $state<Record<string, string>>({})
   workspaces = $state<WorkspaceInfo[]>([])
   /** Workspace activo: filtra la lista de conexiones ("" = todas). */
   workspaceId = $state<string>(readWorkspaceId())
@@ -167,6 +171,46 @@ class Workspace {
     return this.recentIds.map((id) => this.visibleProfiles.find((p) => p.id === id)).filter((p): p is Profile => !!p)
   }
 
+  /** Bases de datos de la conexión activa (vacío hasta que se cargan). */
+  get databases(): string[] {
+    return this.active ? (this.dbLists[this.active.id] ?? []) : []
+  }
+
+  /** Base por defecto de la conexión: la del perfil o, en SQLite, la única. */
+  get defaultDb(): string {
+    const p = this.active
+    if (!p) return ''
+    return p.driver === 'sqlite' ? (this.dbLists[p.id]?.[0] ?? 'main') : p.database
+  }
+
+  /** Base de datos de una pestaña (la suya o, si no tiene, la de la conexión). */
+  dbOf(t: Tab | null): string {
+    return t?.database || this.defaultDb
+  }
+
+  /** La base seleccionada: la que explora el árbol y la que usan las pestañas nuevas ('' = ninguna elegida aún). */
+  get treeDb(): string {
+    const p = this.active
+    return p ? (this.treeDbs[p.id] ?? this.defaultDb) : ''
+  }
+
+  /** Al cambiar de pestaña, el árbol pasa a la base de esa pestaña. */
+  followTab() {
+    const db = this.dbOf(this.tab)
+    const p = this.active
+    if (p && db && (p.driver === 'sqlite' || this.isDbOpen(p.id, db))) this.treeDbs[p.id] = db // no reabre una base cerrada
+  }
+
+  /** La base de la pestaña actual (la de la barra inferior). */
+  get currentDb(): string {
+    return this.dbOf(this.tab)
+  }
+
+  async loadDatabases(p: Profile | null = this.active) {
+    if (!p) return
+    try { this.dbLists[p.id] = await api.databases(p.id) } catch { /* el árbol muestra el error */ }
+  }
+
   isDbOpen(profileId: string, database: string): boolean {
     return !!this.openDbs[`${profileId}|${database}`]
   }
@@ -187,6 +231,7 @@ class Workspace {
     if (p.driver === 'sqlite') return this.disconnect()
     await api.disconnectDatabase(p.id, database)
     delete this.openDbs[`${p.id}|${database}`]
+    if (this.treeDbs[p.id] === database) this.treeDbs[p.id] = ''
     delete this.indexes[this.indexKey(database)]
     this.resetTabDatabases(p.id, database)
   }
@@ -198,6 +243,7 @@ class Workspace {
       this.saveWorkspaceId(p.workspace || '')
     }
     this.active = p
+    if (!this.dbLists[p.id]) void this.loadDatabases(p)
     if (p.driver !== 'sqlite' && p.database) this.openDbs[`${p.id}|${p.database}`] = true
     this.recentIds = [p.id, ...this.recentIds.filter((id) => id !== p.id)].slice(0, RECENT_MAX)
     try { localStorage.setItem(RECENT, JSON.stringify(this.recentIds)) } catch { /* no crítico */ }
@@ -215,6 +261,7 @@ class Workspace {
     this.active = null
     for (const k of Object.keys(this.indexes)) if (k.startsWith(`${p.id}|`)) delete this.indexes[k]
     for (const k of Object.keys(this.openDbs)) if (k.startsWith(`${p.id}|`)) delete this.openDbs[k]
+    delete this.treeDbs[p.id]
     this.resetTabDatabases(p.id)
     await api.disconnectConnection(p.id)
   }
@@ -241,7 +288,7 @@ class Workspace {
       id: crypto.randomUUID(),
       title: opts.title ?? `Consulta ${++this.counter}`,
       sql: opts.sql ?? '',
-      database: opts.database ?? this.tab?.database ?? '',
+      database: opts.database ?? this.treeDb,
       result: null, error: '', running: false, queryId: '',
       filePath: '', savedSql: '', crlf: false, lastSql: '',
     })
@@ -436,9 +483,15 @@ class Workspace {
     if (t) this.run(t.sql)
   }
 
+  /** Elige la base que explora el árbol; si la pestaña actual es de consulta, también pasa a ejecutarse ahí. */
   setDatabase(database: string) {
+    if (!this.active) return
     this.markDbOpen(database)
-    if (this.queryTab) this.queryTab.database = database
+    this.treeDbs[this.active.id] = database
+    if (this.queryTab) {
+      this.queryTab.database = database
+      void this.ensureIndex(database) // abre el pool y carga el autocompletado de esa base
+    }
   }
 
   /** Cambia cuando cambia cualquier borrador; sirve para disparar el guardado. */

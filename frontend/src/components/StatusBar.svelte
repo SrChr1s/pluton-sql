@@ -8,9 +8,11 @@
   const r = $derived(q?.result)
   const dt = $derived(ws.dataTab?.state)
 
-  // Base de datos de la pestaña (o la del perfil) y, si es una tabla, su nombre: "bd › tabla".
-  const dbName = $derived(ws.tab?.database || (ws.active?.driver === 'sqlite' ? 'main' : ws.active?.database) || '')
+  // Base de datos y tabla de la pestaña: solo se usan en el tooltip y en el menú.
+  const dbName = $derived(ws.currentDb)
   const tableName = $derived(ws.dataTab?.state.loc.table ?? '')
+  // Servidor de la conexión (en SQLite, el archivo).
+  const hostName = $derived(!ws.active ? '' : ws.active.driver === 'sqlite' ? (ws.active.filePath.split(/[\\/]/).pop() ?? ws.active.filePath) : ws.active.host || ws.active.name)
 
   let menuOpen = $state(false)
   const menuItems = $derived<MenuItem[]>([
@@ -34,10 +36,9 @@
 <footer>
   <div class="left" style:box-shadow={ws.active?.color ? `inset 3px 0 ${ws.active.color}` : undefined}>
     {#if ws.active}
-      <button class="conn" aria-haspopup="menu" aria-expanded={menuOpen} title="Opciones de la conexión" onpointerdown={(e) => e.stopPropagation()} onclick={() => (menuOpen = !menuOpen)}>
+      <button class="conn" aria-haspopup="menu" aria-expanded={menuOpen} title="Opciones de la conexión" onpointerdown={(e) => e.stopPropagation()} onclick={() => (menuOpen = !menuOpen)} oncontextmenu={(e) => { e.preventDefault(); menuOpen = true }}>
         <Icon name="link" size={14} />
-        <span class="name" title="{ws.active.name}{dbName ? ` — ${dbName}` : ''}">{dbName || ws.active.name}</span>
-        {#if tableName}<span class="db" title="Tabla de la pestaña actual">› {tableName}</span>{/if}
+        <span class="name" title="{ws.active.name}{dbName ? ` — ${dbName}` : ''}{tableName ? ` › ${tableName}` : ''}">{hostName}</span>
         <span class="grow"></span>
         <span class="drv">{ws.active.driver}</span>
       </button>
@@ -75,7 +76,6 @@
   .right { background: var(--surface); border-left: 1px solid var(--border); }
   .name { overflow: hidden; text-overflow: ellipsis; }
   .grow { flex: 1; }
-  .db { color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
   .drv { font-weight: 500; color: var(--accent); }
   .right button { padding: 3px 8px; font-size: 12px; }
 </style>

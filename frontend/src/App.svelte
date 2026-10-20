@@ -38,6 +38,7 @@
 
   // Al cambiar de conexión activa (también desde el menú de la barra inferior) se muestran sus entidades.
   const activeId = $derived(ws.active?.id)
+  $effect(() => { ws.tab?.id; untrack(() => ws.followTab()) })
   $effect(() => { if (activeId) untrack(() => { panel = 'entities'; ui.connForm = null }) })
 
   // La barra de título propia solo hace falta en Linux (la ventana va sin marco).

@@ -14,7 +14,7 @@
     sep?: boolean
   }
 
-  let { items, onclose, up = false, right = false, at }: { items: MenuItem[]; onclose: () => void; up?: boolean; right?: boolean; at?: { x: number; y: number } } = $props()
+  let { items, onclose, up = false, right = false, at, maxHeight }: { items: MenuItem[]; onclose: () => void; up?: boolean; right?: boolean; at?: { x: number; y: number }; /** Alto máximo en px: si hay más elementos, el menú se desplaza (no admite submenús). */ maxHeight?: number } = $props()
   let el: HTMLDivElement
   let openSub = $state(-1)
 
@@ -29,7 +29,7 @@
 <!-- El botón que abre el menú debe parar el pointerdown para no cerrarlo y reabrirlo al hacer clic. -->
 <svelte:window onpointerdown={(e) => { if (!el?.contains(e.target as Node)) onclose() }} onblur={onclose} onkeydown={(e) => e.key === 'Escape' && onclose()} />
 
-<div class="menu" class:up class:right class:fixed={!!at} role="menu" bind:this={el}
+<div class="menu" class:up class:right class:fixed={!!at} class:scroll={!!maxHeight} style:max-height={maxHeight ? `${maxHeight}px` : undefined} role="menu" bind:this={el}
      style:left={at ? `${Math.min(at.x, innerWidth - 240)}px` : undefined} style:top={at ? `${Math.min(at.y, innerHeight - 40 - items.length * 36)}px` : undefined}>
   {#each items as it, i}
     {#if it.sep}<hr />{:else}
@@ -57,6 +57,7 @@
 </div>
 
 <style>
+  .menu.scroll { overflow-y: auto; overscroll-behavior: contain; }
   .menu { position: absolute; z-index: 30; min-width: 220px; padding: 6px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); left: 0; top: calc(100% + 4px); }
   .menu.fixed { position: fixed; }
   .menu.up { top: auto; bottom: calc(100% + 6px); }
