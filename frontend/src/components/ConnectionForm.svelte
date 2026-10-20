@@ -1,11 +1,13 @@
 <script lang="ts">
   import { api, emptyProfile, errMsg, type Profile } from '../lib/api'
+  import Icon from './Icon.svelte'
   import { ws } from '../lib/workspace.svelte'
 
   let { profile, onsaved, oncancel }: { profile: Profile | null; onsaved: (p: Profile, connect: boolean) => void; oncancel: () => void } = $props()
 
   let p = $state<Profile>(profile ? { ...emptyProfile(), ...profile } : { ...emptyProfile(), workspace: ws.workspaceId })
   let password = $state('')
+  let showPw = $state(false)
   let drivers = $state<string[]>([])
   let status = $state<{ ok: boolean; msg: string } | null>(null)
   let busy = $state(false)
@@ -87,7 +89,12 @@
       </div>
       <div class="row">
         <label>Usuario <input bind:value={p.user} autocomplete="off" /></label>
-        <label>Contraseña <input type="password" bind:value={password} placeholder={profile ? '(sin cambios)' : ''} autocomplete="new-password" /></label>
+        <label>Contraseña
+          <span class="pw">
+            <input type={showPw ? 'text' : 'password'} bind:value={password} placeholder={profile ? '(sin cambios)' : ''} autocomplete="new-password" />
+            <button type="button" class="eye" onclick={() => (showPw = !showPw)} title={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-label={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed={showPw}><Icon name={showPw ? 'eyeoff' : 'view'} size={15} /></button>
+          </span>
+        </label>
       </div>
       <label>Base de datos <input bind:value={p.database} placeholder="opcional" /></label>
       {#if p.driver === 'mssql'}
@@ -135,6 +142,10 @@
   .card { margin: auto; background: var(--surface); border-radius: 10px; padding: 20px; width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 12px; }
   h3 { margin: 0 0 4px; font-size: 18px; }
   h4 { margin: 0; font-size: 13px; }
+  .pw { position: relative; display: flex; }
+  .pw input { width: 100%; padding-right: 32px; }
+  .eye { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); background: none; border: 0; padding: 4px 6px; color: var(--muted); display: flex; cursor: pointer; }
+  .eye:hover { color: var(--text); }
   label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); flex: 1; }
   .box { background: var(--bg); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
   .row { display: flex; gap: 10px; }
