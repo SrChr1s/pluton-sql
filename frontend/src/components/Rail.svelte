@@ -72,12 +72,14 @@
 
 <nav class="rail" aria-label="Paneles">
   {#each items as it (it.id)}
-    {#if !it.needsConn || ws.active}
+    <!-- Conectado: se ocultan las conexiones y los workspaces; para cambiar de conexión está el menú de la barra inferior. -->
+    {#if it.needsConn ? ws.active : !ws.active}
       <button class="ghost icon" class:on={panel === it.id} title={it.label} aria-label={it.label} aria-pressed={panel === it.id} onclick={() => onselect(it.id)}>
         <Icon name={it.icon} size={19} />
       </button>
     {/if}
   {/each}
+  {#if !ws.active}
   <div class="wss" role="group" aria-label="Workspaces">
     <button class="ghost icon all" class:on={!ws.workspaceId} title="Todas las conexiones" aria-label="Todas las conexiones" aria-pressed={!ws.workspaceId} class:drop={over === ''} onclick={() => ws.selectWorkspace('')} {...dropProps('')}>
       <Icon name="grid" size={17} />
@@ -90,6 +92,7 @@
     {/each}
     <button class="ghost icon add" title="Nuevo workspace" aria-label="Nuevo workspace" onclick={create}><Icon name="plus" size={16} /></button>
   </div>
+  {/if}
   <span class="grow"></span>
   {#if ctx}<Menu at={{ x: ctx.x, y: ctx.y }} items={ctxItems} onclose={() => (ctx = null)} />{/if}
   <button class="ghost icon" title={themeLabel} aria-label={themeLabel} onclick={() => theme.toggle()}>
