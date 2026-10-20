@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Pluton SQL
+Name=Plutón SQL
 GenericName=Administrador de bases de datos
 Comment=Administra PostgreSQL, MySQL/MariaDB, SQLite y SQL Server
 Exec=pluton-sql

@@ -1,4 +1,4 @@
-# Pluton SQL
+# Plutón SQL
 
 Herramienta de escritorio para administrar bases de datos SQL, escrita en Go ([Wails v2](https://wails.io)) con interfaz Svelte + TypeScript.
 

@@ -32,7 +32,7 @@ func main() {
 	}
 
 	err = wails.Run(&options.App{
-		Title:     "Pluton SQL",
+		Title:     "Plutón SQL",
 		Width:     1280,
 		Height:    800,
 		MinWidth:  900,

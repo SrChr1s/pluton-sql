@@ -20,7 +20,7 @@
   {/if}
 {/snippet}
 
-<svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="Pluton SQL" class:animate>
+<svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="Plutón SQL" class:animate>
   <defs>
     <radialGradient id="body-{uid}" cx="36%" cy="30%" r="80%">
       <stop offset="0" stop-color="#f3dcc2" />

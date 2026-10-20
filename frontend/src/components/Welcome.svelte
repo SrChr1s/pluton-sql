@@ -20,7 +20,7 @@
   </svg>
   <div class="content">
     <Logo size={200} animate />
-    <h1>Pluton SQL</h1>
+    <h1>Plutón SQL</h1>
     <p>{hasConnections ? 'Elige una conexión en el panel lateral y explora tus bases de datos.' : 'Crea tu primera conexión a PostgreSQL, MySQL, SQLite o SQL Server.'}</p>
     <button class="primary" onclick={onnew}><Icon name="plus" size={14} /> Nueva conexión</button>
   </div>

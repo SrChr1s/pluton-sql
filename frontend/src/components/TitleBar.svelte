@@ -6,7 +6,7 @@
 
 <!-- Solo se muestra donde la ventana no tiene barra propia (Linux). Se arrastra desde cualquier parte vacía. -->
 <header ondblclick={() => WindowToggleMaximise()}>
-  <span class="title"><Logo size={16} orbit={false} /> Pluton SQL</span>
+  <span class="title"><Logo size={16} orbit={false} /> Plutón SQL</span>
   <span class="btns">
     <button class="ghost" title="Minimizar" aria-label="Minimizar" ondblclick={(e) => e.stopPropagation()} onclick={() => WindowMinimise()}><Icon name="minus" size={14} /></button>
     <button class="ghost" title="Maximizar o restaurar" aria-label="Maximizar o restaurar" ondblclick={(e) => e.stopPropagation()} onclick={() => WindowToggleMaximise()}><Icon name="maximize" size={12} /></button>
