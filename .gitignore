@@ -5,3 +5,4 @@ build/_overlay
 /pluton-sql
 frontend/package.json.md5
 dist
+build/windows/installer/tmp
