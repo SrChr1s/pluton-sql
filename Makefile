@@ -8,7 +8,7 @@ TAGS ?= webkit2_41
 .PHONY: overlay build build-windows dev test test-frontend test-integration install uninstall package-linux installer-windows
 
 # Versión de los paquetes. Mantenla igual que info.productVersion de wails.json (la usa el instalador de Windows).
-VERSION ?= 0.1.0
+VERSION ?= 0.1.1
 BIN := build/bin/pluton-sql
 # Instalación de usuario por defecto (sin sudo). Para todo el sistema: sudo make install PREFIX=/usr/local
 PREFIX ?= $(HOME)/.local
