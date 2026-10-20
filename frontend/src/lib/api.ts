@@ -19,6 +19,7 @@ export type Column = driver.ColumnInfo
 export type Index = driver.IndexInfo
 export type QueryResult = service.QueryResult
 export type TablePage = service.TablePage
+export type CellPreview = service.CellPreview
 export type TableRef = service.TableRef
 export type Change = service.Change
 export type PageRequest = service.PageRequest
@@ -69,6 +70,8 @@ export const api = {
   tablePage: Data.Page,
   tableCount: Data.Count,
   applyChanges: Data.Apply,
+  cellPreview: Data.CellPreview,
+  cellSave: Data.CellSave,
   historyList: list(History.List),
   historyDelete: History.Delete,
   historyClear: History.Clear,

@@ -247,6 +247,82 @@ export namespace service {
 	        this.deleted = source["deleted"];
 	    }
 	}
+	export class CellPreview {
+	    size: number;
+	    mime: string;
+	    kind: string;
+	    offset: number;
+	    image: string;
+	    text: string;
+	    hex: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CellPreview(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.size = source["size"];
+	        this.mime = source["mime"];
+	        this.kind = source["kind"];
+	        this.offset = source["offset"];
+	        this.image = source["image"];
+	        this.text = source["text"];
+	        this.hex = source["hex"];
+	    }
+	}
+	export class TableRef {
+	    profile: string;
+	    database: string;
+	    schema: string;
+	    table: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TableRef(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.profile = source["profile"];
+	        this.database = source["database"];
+	        this.schema = source["schema"];
+	        this.table = source["table"];
+	    }
+	}
+	export class CellRequest {
+	    table: TableRef;
+	    column: string;
+	    key: Record<string, any>;
+	
+	    static createFrom(source: any = {}) {
+	        return new CellRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.table = this.convertValues(source["table"], TableRef);
+	        this.column = source["column"];
+	        this.key = source["key"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class Change {
 	    kind: string;
 	    key: Record<string, any>;
@@ -381,24 +457,6 @@ export namespace service {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.column = source["column"];
 	        this.source = source["source"];
-	    }
-	}
-	export class TableRef {
-	    profile: string;
-	    database: string;
-	    schema: string;
-	    table: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new TableRef(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.profile = source["profile"];
-	        this.database = source["database"];
-	        this.schema = source["schema"];
-	        this.table = source["table"];
 	    }
 	}
 	export class ImportRequest {

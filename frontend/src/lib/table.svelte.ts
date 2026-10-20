@@ -28,6 +28,8 @@ export class TableState {
   orderBy = $state('')
   desc = $state(false)
   filter = $state('')
+  /** Columnas ocultas en la rejilla (solo afecta a la vista). */
+  hidden = $state<string[]>([])
   total = $state<number | null>(null)
   counting = $state(false)
 
@@ -69,6 +71,7 @@ export class TableState {
   // --- derivados ---
   get keyColumns(): string[] { return this.page?.keyColumns ?? [] }
   get columns() { return this.page?.columns ?? [] }
+  get visibleColumns() { return this.columns.filter((c) => !this.hidden.includes(c.name)) }
   get canEditRows() { return !!this.page && !this.page.isView && this.keyColumns.length > 0 }
   get canInsert() { return !!this.page && !this.page.isView }
   get pending(): number {
@@ -129,6 +132,25 @@ export class TableState {
     await this.load()
   }
 
+  /** Ordena por la columna en un sentido concreto; desc = null quita el orden. */
+  async setSort(col: string, desc: boolean | null) {
+    if (!(await this.canDiscard('cambias el orden'))) return
+    this.orderBy = desc === null ? '' : col
+    this.desc = desc === true
+    this.offset = 0
+    await this.load()
+  }
+
+  hide(col: string) { if (!this.hidden.includes(col) && this.visibleColumns.length > 1) this.hidden.push(col) }
+  showAll() { this.hidden = [] }
+
+  /** Valores de las columnas clave de una fila cargada: identifican la fila en el backend. */
+  keyOf(row: number): Record<string, unknown> {
+    const o: Record<string, unknown> = {}
+    for (const k of this.keyColumns) o[k] = this.page?.rows[row]?.[this.colIndex(k)]
+    return o
+  }
+
   async applyFilter(f: string) {
     if (!(await this.canDiscard('cambias el filtro'))) return
     this.filter = f.trim()
@@ -151,7 +173,7 @@ export class TableState {
   }
 
   // --- edición de celdas ---
-  private colIndex(col: string) { return this.columns.findIndex((c) => c.name === col) }
+  colIndex(col: string) { return this.columns.findIndex((c) => c.name === col) }
   private colType(col: string) { return this.columns[this.colIndex(col)]?.type ?? '' }
 
   original(row: number, col: string): string | null {

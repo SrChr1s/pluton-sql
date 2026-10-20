@@ -6,10 +6,22 @@ export function Apply(arg1, arg2) {
   return window['go']['service']['DataService']['Apply'](arg1, arg2);
 }
 
+export function CellPreview(arg1) {
+  return window['go']['service']['DataService']['CellPreview'](arg1);
+}
+
+export function CellSave(arg1, arg2) {
+  return window['go']['service']['DataService']['CellSave'](arg1, arg2);
+}
+
 export function Count(arg1, arg2) {
   return window['go']['service']['DataService']['Count'](arg1, arg2);
 }
 
 export function Page(arg1) {
   return window['go']['service']['DataService']['Page'](arg1);
+}
+
+export function SetContext(arg1) {
+  return window['go']['service']['DataService']['SetContext'](arg1);
 }

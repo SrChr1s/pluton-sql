@@ -13,6 +13,9 @@ export type ImportTarget = { loc: TableLocation; columns: { name: string; type: 
 
 export type SchemaDialog = { loc: TableLocation; kind: string; target: string; structure: TableStructure | null }
 
+/** Celda binaria cuyo contenido se está viendo. */
+export type CellView = { loc: TableLocation; column: string; key: Record<string, unknown>; title: string }
+
 export type Toast = { id: number; msg: string; kind: 'ok' | 'err' }
 export type PromptOptions = { title: string; label: string; value?: string; confirmLabel?: string }
 
@@ -23,6 +26,7 @@ class UI {
   connForm = $state<{ profile: Profile | null } | null>(null)
   exporting = $state<ExportSource | null>(null)
   importing = $state<ImportTarget | null>(null)
+  viewing = $state<CellView | null>(null)
   toasts = $state<Toast[]>([])
   prompting = $state<(PromptOptions & { resolve: (v: string | null) => void }) | null>(null)
   private toastSeq = 0

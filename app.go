@@ -66,6 +66,7 @@ func NewApp() (*App, error) {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	a.Dialogs.SetContext(ctx)
+	a.Data.SetContext(ctx)
 	a.events.SetContext(ctx)
 }
 

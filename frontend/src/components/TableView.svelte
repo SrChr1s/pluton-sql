@@ -3,8 +3,10 @@
   import { ws, type DataTab } from '../lib/workspace.svelte'
   import { isReadonlyType } from '../lib/table.svelte'
   import { copyText } from '../lib/clipboard'
+  import { api, errMsg } from '../lib/api'
   import { ui } from '../lib/ui.svelte'
   import StructureView from './StructureView.svelte'
+  import Menu, { type MenuItem } from './Menu.svelte'
 
   let { tab }: { tab: DataTab } = $props()
   const t = $derived(tab.state)
@@ -24,9 +26,56 @@
     const c = t.columns.find((x) => x.name === col)
     return !!c && !isReadonlyType(c.type)
   }
+  const isBinary = (col: string) => isReadonlyType(t.columns.find((x) => x.name === col)?.type ?? '')
+
+  // Ver el contenido de una celda binaria: hace falta una clave con la que localizar la fila en el backend.
+  const canViewCell = (row: number, col: string) => isBinary(col) && t.keyColumns.length > 0 && t.original(row, col) !== null
+  function viewCell(row: number, col: string) {
+    ui.viewing = { loc: t.loc, column: col, key: t.keyOf(row), title: `${t.loc.table}.${col} · fila ${t.firstRow + row}` }
+  }
+  async function saveCell(row: number, col: string) {
+    try {
+      const path = await api.cellSave({ table: t.loc, column: col, key: t.keyOf(row) } as Parameters<typeof api.cellSave>[0], `${t.loc.table}_${col}`)
+      if (path) ui.toast(`Guardado en ${path}`)
+    } catch (e) { ui.toast(errMsg(e), 'err') }
+  }
+
+  let ctx = $state<{ x: number; y: number; items: MenuItem[] } | null>(null)
+  function showMenu(e: MouseEvent, items: MenuItem[]) { e.preventDefault(); e.stopPropagation(); ctx = { x: e.clientX, y: e.clientY, items } }
+
+  function columnMenu(e: MouseEvent, col: string) {
+    const asc = t.orderBy === col && !t.desc, desc = t.orderBy === col && t.desc
+    showMenu(e, [
+      { label: 'Ordenar ascendente', icon: 'up', checked: asc, run: () => t.setSort(col, false) },
+      { label: 'Ordenar descendente', icon: 'down', checked: desc, run: () => t.setSort(col, true) },
+      { label: 'Quitar el orden', icon: 'x', disabled: t.orderBy !== col, run: () => t.setSort(col, null) },
+      { sep: true, label: '' },
+      { label: 'Copiar nombre', icon: 'copy', run: () => void copyText(col) },
+      { label: 'Ocultar columna', icon: 'eyeoff', disabled: t.visibleColumns.length <= 1, run: () => t.hide(col) },
+      { label: t.hidden.length ? `Mostrar las ${t.hidden.length} columnas ocultas` : 'Mostrar columnas ocultas', icon: 'view', disabled: t.hidden.length === 0, run: () => t.showAll() },
+    ])
+  }
+
+  function cellMenu(e: MouseEvent, cell: Cell) {
+    selected = cell
+    const v = cell.draft === null ? t.value(cell.row, cell.col) : (t.drafts[cell.draft][cell.col] ?? null)
+    const items: MenuItem[] = [{ label: 'Copiar valor', icon: 'copy', disabled: v === null, run: () => void copyText(v ?? '') }]
+    if (cell.draft === null && isBinary(cell.col)) {
+      const ok = canViewCell(cell.row, cell.col)
+      items.push(
+        { label: 'Ver contenido…', icon: 'view', disabled: !ok, run: () => viewCell(cell.row, cell.col) },
+        { label: 'Guardar como archivo…', icon: 'download', disabled: !ok, run: () => void saveCell(cell.row, cell.col) },
+      )
+    } else if (cell.draft === null && editable(cell.col) && t.canEditRows && !t.deleted[cell.row]) {
+      items.push({ label: 'Establecer NULL', icon: 'x', disabled: v === null, run: () => t.setCell(cell.row, cell.col, null) })
+    }
+    showMenu(e, items)
+  }
+
   const sameCell = (a: Cell | null, b: Cell) => !!a && a.draft === b.draft && a.row === b.row && a.col === b.col
 
   function startEdit(cell: Cell) {
+    if (cell.draft === null && isBinary(cell.col)) { if (canViewCell(cell.row, cell.col)) viewCell(cell.row, cell.col); return }
     if (!editable(cell.col)) return
     if (cell.draft === null && (!t.canEditRows || t.deleted[cell.row])) return
     if (cell.draft !== null && !t.canInsert) return
@@ -47,7 +96,7 @@
   function cancel() { editing = null; gridEl?.focus() }
 
   function nextEditable(col: string, dir: 1 | -1): string | null {
-    const names = t.columns.map((c) => c.name)
+    const names = t.visibleColumns.map((c) => c.name)
     for (let i = names.indexOf(col) + dir; i >= 0 && i < names.length; i += dir) if (editable(names[i])) return names[i]
     return null
   }
@@ -78,7 +127,7 @@
   function onGridKey(e: KeyboardEvent) {
     if (editing || !selected) return
     const s = selected
-    const cols = t.columns.map((c) => c.name)
+    const cols = t.visibleColumns.map((c) => c.name)
     const rows = t.page?.rows.length ?? 0
     const move = (dr: number, dc: number) => {
       e.preventDefault()
@@ -155,6 +204,7 @@
       {#each sizes as n}<option value={n}>{n} filas</option>{/each}
     </select>
     <span class="grow"></span>
+    {#if t.hidden.length}<button class="ghost" title="Mostrar las columnas ocultas" onclick={() => t.showAll()}><Icon name="view" size={14} /> {t.hidden.length} oculta(s)</button>{/if}
     <button onclick={addRow} disabled={!t.canInsert || t.loading}><Icon name="plus" size={13} /> Fila</button>
     {#if t.pending > 0}
       <button onclick={() => t.discard()}><Icon name="undo" size={13} /> Descartar</button>
@@ -190,8 +240,8 @@
         <thead>
           <tr>
             <th class="n"></th>
-            {#each t.columns as c (c.name)}
-              <th aria-sort={t.orderBy === c.name ? (t.desc ? 'descending' : 'ascending') : 'none'}>
+            {#each t.visibleColumns as c (c.name)}
+              <th oncontextmenu={(e) => columnMenu(e, c.name)} aria-sort={t.orderBy === c.name ? (t.desc ? 'descending' : 'ascending') : 'none'}>
                 <button class="hd" onclick={() => t.sortBy(c.name)} title="{c.name} · {c.type}{c.nullable ? '' : ' · NOT NULL'} — clic para ordenar">
                   {#if t.keyColumns.includes(c.name) && t.page.hasPk}<span class="pk"><Icon name="key" size={11} /></span>{/if}
                   <span class="cn">{c.name}</span><span class="ct">{c.type}</span>
@@ -205,9 +255,9 @@
           {#each t.drafts as d, i (i)}
             <tr class="draft">
               <td class="n"><button class="ghost icon rm" aria-label="Quitar fila nueva" onclick={() => t.removeDraft(i)}><Icon name="x" size={12} /></button></td>
-              {#each t.columns as c (c.name)}
+              {#each t.visibleColumns as c (c.name)}
                 {@const cell = { draft: i, row: 0, col: c.name }}
-                <td class:sel={sameCell(selected, cell)} class:ro={!editable(c.name)} onclick={() => { selected = cell; gridEl?.focus() }} ondblclick={() => startEdit(cell)}>
+                <td class:sel={sameCell(selected, cell)} class:ro={!editable(c.name)} onclick={() => { selected = cell; gridEl?.focus() }} ondblclick={() => startEdit(cell)} oncontextmenu={(e) => cellMenu(e, cell)}>
                   {#if sameCell(editing, cell)}
                     {@render editor()}
                   {:else if c.name in d}
@@ -227,12 +277,12 @@
                   </button>
                 {/if}
               </td>
-              {#each t.columns as c, ci (c.name)}
+              {#each t.visibleColumns as c (c.name)}
                 {@const cell = { draft: null, row: r, col: c.name }}
                 {@const v = t.value(r, c.name)}
                 <td class:sel={sameCell(selected, cell)} class:edited={t.isEdited(r, c.name)} class:ro={!t.canEditRows || !editable(c.name)}
-                    class:right={isNumber(r, ci)} title={v ?? 'NULL'}
-                    onclick={() => { selected = cell; gridEl?.focus() }} ondblclick={() => startEdit(cell)}>
+                    class:right={isNumber(r, t.colIndex(c.name))} class:bin={isBinary(c.name) && v !== null} title={isBinary(c.name) ? 'Doble clic para ver el contenido' : (v ?? 'NULL')}
+                    onclick={() => { selected = cell; gridEl?.focus() }} ondblclick={() => startEdit(cell)} oncontextmenu={(e) => cellMenu(e, cell)}>
                   {#if sameCell(editing, cell)}
                     {@render editor()}
                   {:else if v === null}<span class="null">NULL</span>{:else}{v}{/if}
@@ -263,6 +313,8 @@
     <button class="nullbtn" tabindex="-1" title="Poner NULL" onmousedown={(e) => { e.preventDefault(); commit(null) }}>NULL</button>
   </div>
 {/snippet}
+
+{#if ctx}<Menu at={{ x: ctx.x, y: ctx.y }} items={ctx.items} onclose={() => (ctx = null)} />{/if}
 
 <style>
   .tv { display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--surface); }
@@ -299,6 +351,7 @@
   .pk { color: var(--warn); display: inline-flex; }
   td { padding: 2px 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-right: 1px solid color-mix(in srgb, var(--border) 60%, transparent); white-space: nowrap; max-width: 420px; overflow: hidden; text-overflow: ellipsis; cursor: default; position: relative; height: 24px; }
   td.right { text-align: right; }
+  td.bin { color: var(--muted); font-family: var(--mono); font-size: 11.5px; cursor: pointer; }
   td.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
   td.edited { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 3px 0 var(--accent); }
   tbody tr:hover td:not(.edited):not(.n) { background: var(--accent-soft); }

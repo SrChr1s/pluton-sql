@@ -69,7 +69,13 @@ type ApplyResult struct {
 	Deleted  int `json:"deleted"`
 }
 
-type DataService struct{ pools Pools }
+type DataService struct {
+	pools Pools
+	ctx   context.Context // de Wails: lo necesitan los diálogos de guardar
+}
+
+// SetContext recibe el contexto de Wails, necesario para mostrar diálogos.
+func (s *DataService) SetContext(ctx context.Context) { s.ctx = ctx }
 
 func NewDataService(pools Pools) *DataService { return &DataService{pools: pools} }
 
@@ -313,6 +319,26 @@ func coerce(v any) any {
 	return v
 }
 
+// keyWhere arma la condición que identifica una fila con los valores originales de sus columnas clave.
+func keyWhere(d driver.Dialect, keys []string, key map[string]any, param func(any) string) (string, error) {
+	if len(keys) == 0 {
+		return "", errors.New("la tabla no tiene columnas con las que identificar una fila")
+	}
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		v, ok := key[k]
+		if !ok {
+			return "", fmt.Errorf("falta el valor original de la columna %q", k)
+		}
+		if v == nil {
+			parts = append(parts, d.Quote(k)+" IS NULL")
+		} else {
+			parts = append(parts, d.Quote(k)+" = "+param(v))
+		}
+	}
+	return strings.Join(parts, " AND "), nil
+}
+
 func buildChange(d driver.Dialect, ref TableRef, c Change, keys []string, known map[string]bool) (string, []any, error) {
 	tbl := qualified(d, ref)
 	var args []any
@@ -331,24 +357,7 @@ func buildChange(d driver.Dialect, ref TableRef, c Change, keys []string, known 
 		sortStrings(names)
 		return names, nil
 	}
-	where := func() (string, error) {
-		if len(keys) == 0 {
-			return "", errors.New("la tabla no tiene columnas con las que identificar una fila")
-		}
-		parts := make([]string, 0, len(keys))
-		for _, k := range keys {
-			v, ok := c.Key[k]
-			if !ok {
-				return "", fmt.Errorf("falta el valor original de la columna %q", k)
-			}
-			if v == nil {
-				parts = append(parts, d.Quote(k)+" IS NULL")
-			} else {
-				parts = append(parts, d.Quote(k)+" = "+param(v))
-			}
-		}
-		return strings.Join(parts, " AND "), nil
-	}
+	where := func() (string, error) { return keyWhere(d, keys, c.Key, param) }
 
 	switch c.Kind {
 	case "update":
