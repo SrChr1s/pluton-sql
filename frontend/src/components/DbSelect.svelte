@@ -9,6 +9,8 @@
   let listEl: HTMLDivElement | undefined = $state()
 
   const db = $derived(ws.treeDb)
+  // Consulta ya ejecutada en otra base: mantiene su vínculo hasta que se vuelva a ejecutar.
+  const pending = $derived(ws.queryTab?.bound && ws.queryTab.database && ws.queryTab.database !== db ? ws.queryTab.database : '')
   const sqlite = $derived(ws.active?.driver === 'sqlite')
   const connected = $derived(!!ws.active && !!db && (sqlite || ws.isDbOpen(ws.active.id, db)))
   const filtered = $derived(ws.databases.filter((d) => d.toLowerCase().includes(query.trim().toLowerCase())))
@@ -51,6 +53,7 @@
     {#if db}<span class="state" class:on={connected} title={connected ? 'Conectada' : 'Sin conectar'}></span>{/if}
     {#if ws.databases.length > 1}<Icon name="down" size={12} />{/if}
   </button>
+  {#if pending}<p class="note">Esta consulta sigue en <b>{pending}</b> hasta que la ejecutes.</p>{/if}
   {#if open}
     <div class="pop">
       <input use:focus bind:value={query} onkeydown={onKey} placeholder="Buscar base de datos…" role="combobox" aria-expanded="true" aria-controls="db-list" aria-label="Buscar base de datos" autocomplete="off" spellcheck="false" />
@@ -83,6 +86,8 @@
   .state { width: 7px; height: 7px; border-radius: 50%; flex: none; border: 1.5px solid var(--muted); }
   .state.on { background: var(--ok); border-color: var(--ok); }
 
+  .note { margin: 4px 2px 0; font-size: 11.5px; color: var(--muted); }
+  .note b { color: var(--text); font-weight: 600; }
   .pop { position: absolute; z-index: 30; left: 10px; right: 10px; top: calc(100% - 2px); display: flex; flex-direction: column; padding: 6px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); }
   .pop input { margin-bottom: 4px; }
   .list { max-height: min(320px, calc(100vh - 260px)); overflow-y: auto; overscroll-behavior: contain; }

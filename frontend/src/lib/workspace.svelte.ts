@@ -10,6 +10,8 @@ export type QueryTab = {
   title: string
   sql: string
   database: string
+  /** Ya se ejecutó: queda vinculada a `database` hasta que se vuelva a ejecutar sobre otra base. */
+  bound: boolean
   result: QueryResult | null
   error: string
   running: boolean
@@ -269,7 +271,7 @@ class Workspace {
   /** Las pestañas de consulta que apuntaban a `database` (o a todas, si no se indica) vuelven a la base por defecto. */
   private resetTabDatabases(profileId: string, database?: string) {
     for (const t of this.tabsByProfile[profileId] ?? []) {
-      if (t.kind === 'query' && (database === undefined || t.database === database)) t.database = ''
+      if (t.kind === 'query' && (database === undefined || t.database === database)) { t.database = ''; t.bound = false }
     }
   }
 
@@ -289,7 +291,7 @@ class Workspace {
       title: opts.title ?? `Consulta ${++this.counter}`,
       sql: opts.sql ?? '',
       database: opts.database ?? this.treeDb,
-      result: null, error: '', running: false, queryId: '',
+      bound: false, result: null, error: '', running: false, queryId: '',
       filePath: '', savedSql: '', crlf: false, lastSql: '',
     })
   }
@@ -346,7 +348,12 @@ class Workspace {
     if (!t || !p || t.running) return
     const q = text ?? t.sql
     if (!q.trim()) return
-    this.markDbOpen(t.database)
+    // Se ejecuta en la base seleccionada; si es otra que la de la pestaña, la pestaña pasa a quedar vinculada a ella.
+    const db = this.treeDb || t.database
+    if (db !== t.database) void this.ensureIndex(db)
+    t.database = db
+    t.bound = true
+    this.markDbOpen(db)
     t.running = true
     t.error = ''
     t.queryId = crypto.randomUUID()
@@ -483,12 +490,12 @@ class Workspace {
     if (t) this.run(t.sql)
   }
 
-  /** Elige la base que explora el árbol; si la pestaña actual es de consulta, también pasa a ejecutarse ahí. */
+  /** Elige la base que explora el árbol; una pestaña de consulta aún sin ejecutar la sigue (la ya ejecutada queda vinculada a la suya). */
   setDatabase(database: string) {
     if (!this.active) return
     this.markDbOpen(database)
     this.treeDbs[this.active.id] = database
-    if (this.queryTab) {
+    if (this.queryTab && !this.queryTab.bound) { // una consulta ya ejecutada conserva su base hasta que se vuelva a ejecutar
       this.queryTab.database = database
       void this.ensureIndex(database) // abre el pool y carga el autocompletado de esa base
     }
@@ -515,7 +522,7 @@ class Workspace {
     try {
       const raw = JSON.parse(localStorage.getItem(STORE + profileId) ?? '[]') as Pick<QueryTab, 'title' | 'sql' | 'database' | 'filePath' | 'savedSql' | 'crlf'>[]
       return raw.map((r): QueryTab => ({
-        kind: 'query', id: crypto.randomUUID(), title: r.title, sql: r.sql, database: '', // se entra siempre a la base del perfil, no a la última usada
+        kind: 'query', id: crypto.randomUUID(), title: r.title, sql: r.sql, database: '', bound: false, // se entra siempre a la base del perfil, no a la última usada
         result: null, error: '', running: false, queryId: '',
         filePath: r.filePath ?? '', savedSql: r.savedSql ?? '', crlf: r.crlf ?? false, lastSql: '',
       }))
