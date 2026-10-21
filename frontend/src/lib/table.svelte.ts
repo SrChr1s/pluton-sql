@@ -19,7 +19,7 @@ export const display = (v: unknown): string | null => (v === null || v === undef
 /** Estado de una pestaña de datos: página cargada, orden/filtro y cambios pendientes. */
 export class TableState {
   readonly loc: TableLocation
-  page = $state<TablePage | null>(null)
+  page = $state.raw<TablePage | null>(null) // sin proxy profundo: miles de filas × columnas
   loading = $state(false)
   error = $state('')
   notice = $state('')
@@ -71,7 +71,9 @@ export class TableState {
   // --- derivados ---
   get keyColumns(): string[] { return this.page?.keyColumns ?? [] }
   get columns() { return this.page?.columns ?? [] }
-  get visibleColumns() { return this.columns.filter((c) => !this.hidden.includes(c.name)) }
+  private visible = $derived(this.columns.filter((c) => !this.hidden.includes(c.name)))
+  private indexByName = $derived(new Map(this.columns.map((c, i) => [c.name, i])))
+  get visibleColumns() { return this.visible }
   get canEditRows() { return !!this.page && !this.page.isView && this.keyColumns.length > 0 }
   get canInsert() { return !!this.page && !this.page.isView }
   get pending(): number {
@@ -173,7 +175,7 @@ export class TableState {
   }
 
   // --- edición de celdas ---
-  colIndex(col: string) { return this.columns.findIndex((c) => c.name === col) }
+  colIndex(col: string) { return this.indexByName.get(col) ?? -1 }
   private colType(col: string) { return this.columns[this.colIndex(col)]?.type ?? '' }
 
   original(row: number, col: string): string | null {

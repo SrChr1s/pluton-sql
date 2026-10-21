@@ -1,8 +1,14 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
+  import { RowWindow, columnWidths } from '../lib/virtual.svelte'
   import type { QueryResult } from '../lib/api'
   let { result, error, running }: { result: QueryResult | null; error: string; running: boolean } = $props()
 
+  const win = new RowWindow()
+  win.rowH = 21
+  const rng = $derived(win.range(result?.rows.length ?? 0))
+  $effect(() => { result; win.reset() })
+  const widths = $derived(result?.isQuery ? columnWidths(result.columns, result.rows) : [])
   const show = (v: unknown) => (v === null || v === undefined ? null : String(v))
   const isNum = (v: unknown) => typeof v === 'number'
   const shortcuts: [string, string[][]][] = [
@@ -35,18 +41,23 @@
   {:else if result.rows.length === 0}
     <div class="msg hint"><Icon name="orbit" size={20} /><span>Espacio vacío: la consulta no devolvió filas ({result.columns.length} columna(s)).</span></div>
   {:else}
-    <div class="scroll">
-      <table>
+    <div class="scroll" use:win.attach>
+      <table style:width="{widths.reduce((a, b) => a + b, 72)}px">
+        <colgroup><col style:width="72px" />{#each widths as w}<col style:width="{w}px" />{/each}</colgroup>
         <thead><tr><th class="n">#</th>{#each result.columns as c}<th title={c}>{c}</th>{/each}</tr></thead>
         <tbody>
-          {#each result.rows as row, i}
-            <tr><td class="n">{i + 1}</td>
+          {#if rng.before > 0}<tr class="pad" aria-hidden="true" style:height="{rng.before}px"><td colspan={result.columns.length + 1}></td></tr>{/if}
+          {#each { length: rng.end - rng.start } as _, k (rng.start + k)}
+            {@const i = rng.start + k}
+            {@const row = result.rows[i]}
+            <tr data-row={i}><td class="n">{i + 1}</td>
               {#each row as v}
                 {@const s = show(v)}
                 <td class:null={s === null} class:num={isNum(v)} title={s ?? 'NULL'}>{s ?? 'NULL'}</td>
               {/each}
             </tr>
           {/each}
+          {#if rng.after > 0}<tr class="pad" aria-hidden="true" style:height="{rng.after}px"><td colspan={result.columns.length + 1}></td></tr>{/if}
         </tbody>
       </table>
     </div>
@@ -62,9 +73,10 @@
   .kcombos { display: flex; flex-direction: column; gap: 4px; }
   .kcombo { display: flex; gap: 4px; }
   .scroll { flex: 1; overflow: auto; min-height: 0; }
-  table { border-collapse: separate; border-spacing: 0; font: 12px var(--mono); min-width: 100%; }
+  table { border-collapse: separate; border-spacing: 0; font: 12px var(--mono); min-width: 100%; table-layout: fixed; }
   th { position: sticky; top: 0; z-index: 2; background: var(--surface); text-align: left; font: 600 11.5px var(--sans); color: var(--muted); border-bottom-color: var(--muted); }
   th, td { padding: 2px 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-right: 1px solid color-mix(in srgb, var(--border) 60%, transparent); white-space: nowrap; max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
+  tr.pad td { padding: 0; border: none; }
   tbody tr:hover td { background: var(--accent-soft); }
   .n { position: sticky; left: 0; z-index: 1; background: var(--surface); color: var(--muted); text-align: right; width: 1%; font-family: var(--mono); }
   th.n { z-index: 3; }

@@ -7,6 +7,7 @@
   import { ui } from '../lib/ui.svelte'
   import StructureView from './StructureView.svelte'
   import Menu, { type MenuItem } from './Menu.svelte'
+  import { RowWindow, columnWidths } from '../lib/virtual.svelte'
 
   let { tab }: { tab: DataTab } = $props()
   const t = $derived(tab.state)
@@ -19,14 +20,23 @@
   let editText = $state('')
   let selected = $state<Cell | null>(null)
   let gridEl = $state<HTMLDivElement>()
+  const win = new RowWindow()
+  const vcols = $derived(t.visibleColumns)
+  const meta = $derived(new Map(t.columns.map((c) => [c.name, { bin: isReadonlyType(c.type), idx: t.colIndex(c.name) }])))
+  const widths = $derived(t.page ? columnWidths(vcols.map((c) => c.name), t.page.rows.slice(0, 40).map((r) => vcols.map((c) => r[meta.get(c.name)!.idx])), vcols.map((c) => c.type.length)) : [])
+  // Solo se montan las columnas que caen en el área visible (con margen): los anchos son fijos.
+  const cFrom = $derived(Math.max(0, RowWindow.colAt(widths, win.left) - 2))
+  const cTo = $derived(Math.min(widths.length, RowWindow.colAt(widths, win.left + win.viewW) + 3))
+  const shown = $derived(vcols.slice(cFrom, cTo))
+  const tableW = $derived(widths.reduce((a, b) => a + b, 72))
+  const rng = $derived(win.range(t.page?.rows.length ?? 0))
+  // Una página nueva (otra tabla, orden, filtro) empieza arriba.
+  $effect(() => { t.page; win.reset() })
 
   const sizes = [50, 100, 500, 1000]
   const isNumber = (r: number, ci: number) => typeof t.page?.rows[r]?.[ci] === 'number'
-  const editable = (col: string) => {
-    const c = t.columns.find((x) => x.name === col)
-    return !!c && !isReadonlyType(c.type)
-  }
-  const isBinary = (col: string) => isReadonlyType(t.columns.find((x) => x.name === col)?.type ?? '')
+  const editable = (col: string) => { const m = meta.get(col); return !!m && !m.bin }
+  const isBinary = (col: string) => !!meta.get(col)?.bin
 
   // Ver el contenido de una celda binaria: hace falta una clave con la que localizar la fila en el backend.
   const canViewCell = (row: number, col: string) => isBinary(col) && t.keyColumns.length > 0 && t.original(row, col) !== null
@@ -70,6 +80,37 @@
       items.push({ label: 'Establecer NULL', icon: 'x', disabled: v === null, run: () => t.setCell(cell.row, cell.col, null) })
     }
     showMenu(e, items)
+  }
+
+  // Un solo juego de manejadores en <tbody> en vez de tres por celda.
+  function cellAt(e: Event): Cell | null {
+    const td = (e.target as Element).closest?.('td[data-c]') as HTMLElement | null
+    const tr = td?.parentElement as HTMLElement | null
+    if (!td || !tr) return null
+    const draft = tr.dataset.draft !== undefined ? Number(tr.dataset.draft) : null
+    return { draft, row: draft === null ? Number(tr.dataset.row) : 0, col: td.dataset.c! }
+  }
+  const inEditor = (e: Event) => !!(e.target as Element).closest?.('.ed')
+  function onBodyClick(e: MouseEvent) { const c = inEditor(e) ? null : cellAt(e); if (c) { selected = c; gridEl?.focus() } }
+  function onBodyDbl(e: MouseEvent) { const c = inEditor(e) ? null : cellAt(e); if (c) startEdit(c) }
+  function onBodyMenu(e: MouseEvent) { const c = cellAt(e); if (c) cellMenu(e, c) }
+  // El tooltip se pone al pasar el ratón, no al crear cada celda.
+  function onBodyHover(e: MouseEvent) {
+    const td = (e.target as Element).closest?.('td[data-c]') as HTMLElement | null
+    const tr = td?.parentElement as HTMLElement | null
+    if (!td || !tr || tr.dataset.row === undefined) return
+    const col = td.dataset.c!
+    td.title = meta.get(col)?.bin ? 'Doble clic para ver el contenido' : (t.value(Number(tr.dataset.row), col) ?? 'NULL')
+  }
+  const cellCls = (r: number, col: string) => {
+    const m = meta.get(col)!
+    const sel = selected && selected.draft === null && selected.row === r && selected.col === col
+    return (sel ? 'sel ' : '') + (t.isEdited(r, col) ? 'edited ' : '') + (!t.canEditRows || m.bin ? 'ro ' : '') +
+      (typeof t.page?.rows[r]?.[m.idx] === 'number' ? 'right ' : '') + (m.bin && t.value(r, col) !== null ? 'bin' : '')
+  }
+  const draftCls = (i: number, col: string) => {
+    const sel = selected && selected.draft === i && selected.col === col
+    return (sel ? 'sel ' : '') + (meta.get(col)!.bin ? 'ro' : '')
   }
 
   const sameCell = (a: Cell | null, b: Cell) => !!a && a.draft === b.draft && a.row === b.row && a.col === b.col
@@ -133,6 +174,11 @@
       e.preventDefault()
       const ci = Math.min(cols.length - 1, Math.max(0, cols.indexOf(s.col) + dc))
       selected = { draft: null, row: Math.min(rows - 1, Math.max(0, (s.draft === null ? s.row : 0) + dr)), col: cols[ci] }
+      if (gridEl && selected.draft === null) {
+        const y = selected.row * win.rowH, head = 30
+        if (y < gridEl.scrollTop) gridEl.scrollTop = y
+        else if (y + win.rowH + head > gridEl.scrollTop + gridEl.clientHeight) gridEl.scrollTop = y + win.rowH + head - gridEl.clientHeight
+      }
     }
     if (e.key === 'ArrowDown') move(1, 0)
     else if (e.key === 'ArrowUp') move(-1, 0)
@@ -232,15 +278,17 @@
     <div class="banner warn">Sin clave primaria: las filas se identifican por todas sus columnas. Si hay filas idénticas, el cambio se rechaza.</div>
   {/if}
 
-  <div class="grid" bind:this={gridEl} tabindex="0" role="grid" aria-label="Datos de {tab.title}" onkeydown={onGridKey}>
+  <div class="grid" bind:this={gridEl} use:win.attach tabindex="0" role="grid" aria-label="Datos de {tab.title}" onkeydown={onGridKey}>
     {#if !t.page}
       <div class="empty">{t.loading ? 'Cargando…' : 'Sin datos'}</div>
     {:else}
-      <table class:busy={t.loading}>
+      <table class:busy={t.loading} style:width="{tableW}px">
+        <colgroup><col style:width="72px" />{#each widths as w}<col style:width="{w}px" />{/each}</colgroup>
         <thead>
           <tr>
             <th class="n"></th>
-            {#each t.visibleColumns as c (c.name)}
+            {#if cFrom > 0}<th class="cpad" colspan={cFrom}></th>{/if}
+            {#each shown as c (c.name)}
               <th oncontextmenu={(e) => columnMenu(e, c.name)} aria-sort={t.orderBy === c.name ? (t.desc ? 'descending' : 'ascending') : 'none'}>
                 <button class="hd" onclick={() => t.sortBy(c.name)} title="{c.name} · {c.type}{c.nullable ? '' : ' · NOT NULL'} — clic para ordenar">
                   {#if t.keyColumns.includes(c.name) && t.page.hasPk}<span class="pk"><Icon name="key" size={11} /></span>{/if}
@@ -249,26 +297,32 @@
                 </button>
               </th>
             {/each}
+            {#if cTo < vcols.length}<th class="cpad" colspan={vcols.length - cTo}></th>{/if}
           </tr>
         </thead>
-        <tbody>
+        <!-- el teclado se gestiona en el contenedor role="grid" -->
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions, a11y_mouse_events_have_key_events -->
+        <tbody onmouseover={onBodyHover} onclick={onBodyClick} ondblclick={onBodyDbl} oncontextmenu={onBodyMenu}>
           {#each t.drafts as d, i (i)}
-            <tr class="draft">
+            <tr class="draft" data-draft={i}>
               <td class="n"><button class="ghost icon rm" aria-label="Quitar fila nueva" onclick={() => t.removeDraft(i)}><Icon name="x" size={12} /></button></td>
-              {#each t.visibleColumns as c (c.name)}
-                {@const cell = { draft: i, row: 0, col: c.name }}
-                <td class:sel={sameCell(selected, cell)} class:ro={!editable(c.name)} onclick={() => { selected = cell; gridEl?.focus() }} ondblclick={() => startEdit(cell)} oncontextmenu={(e) => cellMenu(e, cell)}>
-                  {#if sameCell(editing, cell)}
+              {#if cFrom > 0}<td class="cpad" colspan={cFrom}></td>{/if}
+              {#each shown as c (c.name)}
+                <td data-c={c.name} class={draftCls(i, c.name)}>
+                  {#if editing && editing.draft === i && editing.col === c.name}
                     {@render editor()}
                   {:else if c.name in d}
                     {#if d[c.name] === null}<span class="null">NULL</span>{:else}{d[c.name]}{/if}
                   {:else}<span class="dflt">por defecto</span>{/if}
                 </td>
               {/each}
+              {#if cTo < vcols.length}<td class="cpad" colspan={vcols.length - cTo}></td>{/if}
             </tr>
           {/each}
-          {#each t.page.rows as row, r (r)}
-            <tr class:del={t.deleted[r]}>
+          {#if rng.before > 0}<tr class="pad" aria-hidden="true" style:height="{rng.before}px"><td colspan={vcols.length + 1}></td></tr>{/if}
+          {#each { length: rng.end - rng.start } as _, i (rng.start + i)}
+            {@const r = rng.start + i}
+            <tr class:del={t.deleted[r]} data-row={r}>
               <td class="n">
                 <span class="num">{t.firstRow + r}</span>
                 {#if t.canEditRows}
@@ -277,19 +331,21 @@
                   </button>
                 {/if}
               </td>
-              {#each t.visibleColumns as c (c.name)}
-                {@const cell = { draft: null, row: r, col: c.name }}
-                {@const v = t.value(r, c.name)}
-                <td class:sel={sameCell(selected, cell)} class:edited={t.isEdited(r, c.name)} class:ro={!t.canEditRows || !editable(c.name)}
-                    class:right={isNumber(r, t.colIndex(c.name))} class:bin={isBinary(c.name) && v !== null} title={isBinary(c.name) ? 'Doble clic para ver el contenido' : (v ?? 'NULL')}
-                    onclick={() => { selected = cell; gridEl?.focus() }} ondblclick={() => startEdit(cell)} oncontextmenu={(e) => cellMenu(e, cell)}>
-                  {#if sameCell(editing, cell)}
+              {#if cFrom > 0}<td class="cpad" colspan={cFrom}></td>{/if}
+              {#each shown as c (c.name)}
+                <td data-c={c.name} class={cellCls(r, c.name)}>
+                  {#if editing && editing.draft === null && editing.row === r && editing.col === c.name}
                     {@render editor()}
-                  {:else if v === null}<span class="null">NULL</span>{:else}{v}{/if}
+                  {:else}
+                    {@const v = t.value(r, c.name)}
+                    {#if v === null}<span class="null">NULL</span>{:else}{v}{/if}
+                  {/if}
                 </td>
               {/each}
+              {#if cTo < vcols.length}<td class="cpad" colspan={vcols.length - cTo}></td>{/if}
             </tr>
           {/each}
+          {#if rng.after > 0}<tr class="pad" aria-hidden="true" style:height="{rng.after}px"><td colspan={vcols.length + 1}></td></tr>{/if}
         </tbody>
       </table>
       {#if t.page.rows.length === 0 && t.drafts.length === 0}
@@ -342,7 +398,7 @@
 
   .grid { flex: 1; overflow: auto; min-height: 0; outline: none; position: relative; background: var(--bg); }
   .grid:focus-visible { box-shadow: inset 0 0 0 2px var(--accent-soft); }
-  table { border-collapse: separate; border-spacing: 0; font: 12px var(--mono); min-width: 100%; }
+  table { border-collapse: separate; border-spacing: 0; font: 12px var(--mono); min-width: 100%; table-layout: fixed; }
   table.busy { opacity: .55; }
   th { position: sticky; top: 0; z-index: 2; background: var(--surface); text-align: left; padding: 0; border-bottom: 1px solid var(--muted); border-right: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
   .hd { width: 100%; justify-content: flex-start; gap: 5px; border: none; background: transparent; border-radius: 0; padding: 3px 10px; font: 600 11.5px var(--sans); color: var(--muted); white-space: nowrap; }
@@ -350,6 +406,8 @@
   .ct { font: 10.5px var(--mono); opacity: .6; font-weight: 400; }
   .pk { color: var(--warn); display: inline-flex; }
   td { padding: 2px 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); border-right: 1px solid color-mix(in srgb, var(--border) 60%, transparent); white-space: nowrap; max-width: 420px; overflow: hidden; text-overflow: ellipsis; cursor: default; position: relative; height: 24px; }
+  .cpad { padding: 0 !important; border: none !important; }
+  tr.pad td { height: auto; padding: 0; border: none; }
   td.right { text-align: right; }
   td.bin { color: var(--muted); font-family: var(--mono); font-size: 11.5px; cursor: pointer; }
   td.sel { outline: 2px solid var(--accent); outline-offset: -2px; }

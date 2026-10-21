@@ -358,7 +358,8 @@ class Workspace {
     t.error = ''
     t.queryId = crypto.randomUUID()
     try {
-      t.result = await api.execute(t.queryId, p.id, t.database, q)
+      // Prototipo nulo: Svelte no envuelve en proxies reactivos las filas del resultado (miles de celdas).
+      t.result = Object.assign(Object.create(null), await api.execute(t.queryId, p.id, t.database, q))
       t.lastSql = q
       if (/^\s*(?:--[^\n]*\n\s*)*(CREATE|ALTER|DROP|RENAME)\b/i.test(q)) this.invalidateIndex() // la estructura pudo cambiar
     } catch (e) {
