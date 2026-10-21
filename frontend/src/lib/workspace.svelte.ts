@@ -76,7 +76,6 @@ class Workspace {
   active = $state<Profile | null>(null)
   private tabsByProfile = $state<Record<string, Tab[]>>({})
   private currentTab = $state<Record<string, string>>({})
-  private counter = 0
   /** Sube cuando cambian las tablas (crear/renombrar/borrar) para que el árbol de esquema se recargue. */
   schemaVersion = $state(0)
   /** Índice de tablas y columnas para el autocompletado, por conexión y base de datos ('cargando' mientras llega). */
@@ -250,9 +249,10 @@ class Workspace {
     this.recentIds = [p.id, ...this.recentIds.filter((id) => id !== p.id)].slice(0, RECENT_MAX)
     try { localStorage.setItem(RECENT, JSON.stringify(this.recentIds)) } catch { /* no crítico */ }
     if (!this.tabsByProfile[p.id]) {
-      this.tabsByProfile[p.id] = this.restore(p.id)
-      if (this.tabsByProfile[p.id].length === 0) this.newTab()
-      this.currentTab[p.id] = this.tabsByProfile[p.id][0].id
+      const saved = this.restore(p.id)
+      this.tabsByProfile[p.id] = saved ?? []
+      if (!saved) this.newTab() // primera vez con esta conexión; si se cerraron todas, se respeta
+      this.currentTab[p.id] = this.tabsByProfile[p.id][0]?.id ?? ''
     }
   }
 
@@ -283,12 +283,20 @@ class Workspace {
     return this.tabsByProfile[p.id].find((x) => x.id === tab.id) as T
   }
 
+  /** «Consulta N» con el menor N que no esté en uso en las pestañas abiertas. */
+  private freeTitle(): string {
+    const used = new Set(this.tabs.map((t) => t.title))
+    let n = 1
+    while (used.has(`Consulta ${n}`)) n++
+    return `Consulta ${n}`
+  }
+
   newTab(opts: Partial<Pick<QueryTab, 'title' | 'sql' | 'database'>> = {}): QueryTab | null {
     if (!this.active) return null
     return this.add<QueryTab>({
       kind: 'query',
       id: crypto.randomUUID(),
-      title: opts.title ?? `Consulta ${++this.counter}`,
+      title: opts.title ?? this.freeTitle(),
       sql: opts.sql ?? '',
       database: opts.database ?? this.treeDb,
       bound: false, result: null, error: '', running: false, queryId: '',
@@ -305,7 +313,7 @@ class Workspace {
     if (this.active) this.currentTab[this.active.id] = id
   }
 
-  /** Cierra una pestaña (pide confirmación si hay cambios sin aplicar); siempre queda al menos una. */
+  /** Cierra una pestaña (pide confirmación si hay cambios sin aplicar); se puede cerrar la última. */
   async close(id: string) {
     const p = this.active
     if (!p) return
@@ -325,7 +333,7 @@ class Workspace {
     if (t.kind === 'query' && t.running) api.cancel(t.queryId)
     const rest = this.tabsByProfile[p.id].filter((x) => x.id !== id)
     this.tabsByProfile[p.id] = rest
-    if (rest.length === 0) this.newTab()
+    if (rest.length === 0) this.currentTab[p.id] = ''
     else if (this.currentTab[p.id] === id) this.currentTab[p.id] = rest[Math.min(i, rest.length - 1)].id
   }
 
@@ -519,16 +527,18 @@ class Workspace {
     }
   }
 
-  private restore(profileId: string): Tab[] {
+  private restore(profileId: string): Tab[] | null {
     try {
-      const raw = JSON.parse(localStorage.getItem(STORE + profileId) ?? '[]') as Pick<QueryTab, 'title' | 'sql' | 'database' | 'filePath' | 'savedSql' | 'crlf'>[]
+      const saved = localStorage.getItem(STORE + profileId)
+      if (saved === null) return null
+      const raw = JSON.parse(saved) as Pick<QueryTab, 'title' | 'sql' | 'database' | 'filePath' | 'savedSql' | 'crlf'>[]
       return raw.map((r): QueryTab => ({
         kind: 'query', id: crypto.randomUUID(), title: r.title, sql: r.sql, database: '', bound: false, // se entra siempre a la base del perfil, no a la última usada
         result: null, error: '', running: false, queryId: '',
         filePath: r.filePath ?? '', savedSql: r.savedSql ?? '', crlf: r.crlf ?? false, lastSql: '',
       }))
     } catch {
-      return []
+      return null
     }
   }
 

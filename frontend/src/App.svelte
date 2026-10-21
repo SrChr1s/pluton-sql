@@ -114,9 +114,19 @@
           if (connect) { ws.connect(p); panel = 'entities' }
           else if (ws.active?.id === p.id) ws.active = ws.profiles.find((x) => x.id === p.id) ?? null // datos nuevos; se reconecta al usarla
         }} />
-    {:else if ws.active && ws.tab}
+    {:else if ws.active}
       <TabBar ontoggle={() => (sidebarOpen = !sidebarOpen)} />
-      {#if ws.queryTab}
+      {#if !ws.tab}
+        <div class="notabs">
+          <Icon name="orbit" size={26} />
+          <span>No hay pestañas abiertas</span>
+          <div class="acts">
+            <button class="run" onclick={() => ws.newTab()}><Icon name="plus" size={14} /> Nueva consulta <kbd>Ctrl</kbd><kbd>T</kbd></button>
+            <button class="ghost" onclick={() => ws.openFile()}><Icon name="folder" size={14} /> Abrir script</button>
+          </div>
+          <small>Abre una tabla desde el panel lateral.</small>
+        </div>
+      {:else if ws.queryTab}
         {@const q = ws.queryTab}
         <div class="work">
           <div class="editor" style:height="{editorPct}%">
@@ -172,6 +182,9 @@
   main { grid-column: 3; grid-row: 2; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
   .app > :global(footer .left) { grid-column: 1 / 3; grid-row: 3; }
   .app > :global(footer .right) { grid-column: 3; grid-row: 3; }
+  .notabs { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--muted); }
+  .notabs .acts { display: flex; gap: 8px; margin-top: 6px; }
+  .notabs kbd { margin-left: 4px; }
   .work { flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   .editor { min-height: 60px; position: relative; background: var(--surface); }
   .fab { position: absolute; right: 18px; bottom: 10px; display: flex; gap: 8px; z-index: 3; }
