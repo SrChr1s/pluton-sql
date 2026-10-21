@@ -2,7 +2,7 @@
   import Icon from './Icon.svelte'
   import { ws } from '../lib/workspace.svelte'
   import { ui } from '../lib/ui.svelte'
-  import Menu, { type MenuItem } from './Menu.svelte'
+  import ConnMenu from './ConnMenu.svelte'
 
   const q = $derived(ws.queryTab)
   const r = $derived(q?.result)
@@ -15,17 +15,6 @@
   const hostName = $derived(!ws.active ? '' : ws.active.driver === 'sqlite' ? (ws.active.filePath.split(/[\\/]/).pop() ?? ws.active.filePath) : ws.active.host || ws.active.name)
 
   let menuOpen = $state(false)
-  const menuItems = $derived<MenuItem[]>([
-    { label: 'Desconectar de la conexión', icon: 'power', run: () => void ws.disconnect() },
-    ...(dbName && ws.active && ws.active.driver !== 'sqlite' && ws.isDbOpen(ws.active.id, dbName)
-      ? [{ label: `Desconectar de ${dbName}`, icon: 'power', run: () => void ws.disconnectDatabase(dbName) }]
-      : []),
-    { label: 'Editar conexión', icon: 'pencil', run: () => { if (ws.active) ui.connForm = { profile: ws.active } } },
-    {
-      label: 'Cambiar de conexión', icon: 'switch',
-      sub: ws.profiles.map((p) => ({ label: p.name, color: p.color || undefined, checked: p.id === ws.active?.id, run: () => ws.connect(p) })),
-    },
-  ])
 
   function exportQuery() {
     if (!q || !ws.active) return
@@ -42,7 +31,7 @@
         <span class="grow"></span>
         <span class="drv">{ws.active.driver}</span>
       </button>
-      {#if menuOpen}<Menu items={menuItems} up onclose={() => (menuOpen = false)} />{/if}
+      {#if menuOpen}<ConnMenu up onclose={() => (menuOpen = false)} />{/if}
     {:else}
       <span class="name">Sin conexión</span>
     {/if}

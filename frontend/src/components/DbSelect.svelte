@@ -76,7 +76,7 @@
 </div>
 
 <style>
-  .dbsel { position: relative; padding: 0 10px 6px; }
+  .dbsel { position: relative; padding: 10px 10px 6px; }
   .btn { display: flex; align-items: center; gap: 7px; width: 100%; padding: 6px 10px; font-size: 12.5px; color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: var(--radius); }
   .btn:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 20%, transparent); }
   .btn:disabled { opacity: 1; cursor: default; }

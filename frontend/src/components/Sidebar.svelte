@@ -1,4 +1,6 @@
 <script lang="ts">
+  import ConnMenu from './ConnMenu.svelte'
+  let connMenu = $state(false)
   import Icon from './Icon.svelte'
   import SchemaTree from './SchemaTree.svelte'
   import DbSelect from './DbSelect.svelte'
@@ -90,9 +92,13 @@
     {/if}
   {:else if ws.active}
     {#if panel === 'entities'}
-      <div class="top head">
-        <Icon name="server" size={14} />
-        <span class="cname" title={ws.active.name}>{ws.active.name}</span>
+      <div class="top head connhead">
+        <button class="cbtn" aria-haspopup="menu" aria-expanded={connMenu} title="Opciones de la conexión" onpointerdown={(e) => e.stopPropagation()}
+                onclick={() => (connMenu = !connMenu)} oncontextmenu={(e) => { e.preventDefault(); connMenu = true }}>
+          <Icon name="server" size={14} />
+          <span class="cname">{ws.active.name}</span>
+        </button>
+        {#if connMenu}<ConnMenu onclose={() => (connMenu = false)} />{/if}
       </div>
       <DbSelect />
       <label class="search">
@@ -135,7 +141,11 @@
   .top { padding: 10px 10px 8px; }
   .newbtn { width: 100%; justify-content: center; background: var(--surface-2); font-weight: 500; padding: 6px; }
   .head { display: flex; align-items: center; gap: 8px; color: var(--muted); padding: 8px 8px 6px 12px; }
-  .cname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-weight: 500; }
+  .connhead { position: relative; height: 34px; box-sizing: border-box; padding: 0 8px 0 8px; border-bottom: 1px solid var(--border); }
+  .cbtn { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; border: none; background: transparent; height: 100%; padding: 0 4px; border-radius: 0; color: inherit; font: inherit; justify-content: flex-start; }
+  .cbtn:hover { background: var(--hover); }
+  .connhead > :global(.menu) { left: 0; top: 100%; }
+  .cname { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-weight: 500; }
   .label { padding: 10px 12px 4px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text); }
   .label.ent { display: flex; align-items: center; justify-content: space-between; padding-right: 8px; }
   .tools { display: flex; align-items: center; gap: 2px; text-transform: none; }
