@@ -15,6 +15,7 @@
   import Rail, { type Panel } from './components/Rail.svelte'
   import ExportDialog from './components/ExportDialog.svelte'
   import CellViewer from './components/CellViewer.svelte'
+  import JsonViewer from './components/JsonViewer.svelte'
   import ImportDialog from './components/ImportDialog.svelte'
   import PromptDialog from './components/PromptDialog.svelte'
   import Toasts from './components/Toasts.svelte'
@@ -165,6 +166,7 @@
       ondone={(loc, op) => { ui.schema = null; void ws.schemaChanged(loc, op) }} />
   {/key}
 {/if}
+{#if ui.json}{#key ui.json}<JsonViewer view={ui.json} onclose={() => (ui.json = null)} />{/key}{/if}
 {#if ui.viewing}{#key ui.viewing}<CellViewer view={ui.viewing} onclose={() => (ui.viewing = null)} />{/key}{/if}
 {#if ui.exporting}{#key ui.exporting}<ExportDialog source={ui.exporting} oncancel={() => (ui.exporting = null)} />{/key}{/if}
 {#if ui.importing}{#key ui.importing}<ImportDialog target={ui.importing} oncancel={() => (ui.importing = null)} />{/key}{/if}

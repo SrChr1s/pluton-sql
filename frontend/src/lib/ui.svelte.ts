@@ -16,6 +16,9 @@ export type SchemaDialog = { loc: TableLocation; kind: string; target: string; s
 /** Celda binaria cuyo contenido se está viendo. */
 export type CellView = { loc: TableLocation; column: string; key: Record<string, unknown>; title: string }
 
+/** Texto JSON que se está inspeccionando. */
+export type JsonView = { title: string; text: string }
+
 export type Toast = { id: number; msg: string; kind: 'ok' | 'err' }
 export type PromptOptions = { title: string; label: string; value?: string; confirmLabel?: string }
 
@@ -27,6 +30,7 @@ class UI {
   exporting = $state<ExportSource | null>(null)
   importing = $state<ImportTarget | null>(null)
   viewing = $state<CellView | null>(null)
+  json = $state<JsonView | null>(null)
   toasts = $state<Toast[]>([])
   prompting = $state<(PromptOptions & { resolve: (v: string | null) => void }) | null>(null)
   private toastSeq = 0

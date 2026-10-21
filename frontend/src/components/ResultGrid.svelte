@@ -1,6 +1,8 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
   import { RowWindow, columnWidths } from '../lib/virtual.svelte'
+  import { parseJson, rowToJson } from '../lib/json'
+  import { ui } from '../lib/ui.svelte'
   import type { QueryResult } from '../lib/api'
   let { result, error, running }: { result: QueryResult | null; error: string; running: boolean } = $props()
 
@@ -9,6 +11,16 @@
   const rng = $derived(win.range(result?.rows.length ?? 0))
   $effect(() => { result; win.reset() })
   const widths = $derived(result?.isQuery ? columnWidths(result.columns, result.rows) : [])
+  // Doble clic: en el número de fila abre la fila completa como JSON; en una celda con JSON, esa celda.
+  function onDbl(e: MouseEvent) {
+    const td = (e.target as Element).closest('td') as HTMLTableCellElement | null
+    const tr = td?.parentElement as HTMLElement | null
+    if (!td || !tr || !result) return
+    const r = Number(tr.dataset.row)
+    if (td.classList.contains('n')) { ui.json = { title: `Fila ${r + 1}`, text: rowToJson(result.columns, result.rows[r]) }; return }
+    const v = result.rows[r]?.[td.cellIndex - 1]
+    if (typeof v === 'string' && parseJson(v) !== undefined) ui.json = { title: `${result.columns[td.cellIndex - 1]} · fila ${r + 1}`, text: v }
+  }
   const show = (v: unknown) => (v === null || v === undefined ? null : String(v))
   const isNum = (v: unknown) => typeof v === 'number'
   const shortcuts: [string, string[][]][] = [
@@ -45,7 +57,8 @@
       <table style:width="{widths.reduce((a, b) => a + b, 72)}px">
         <colgroup><col style:width="72px" />{#each widths as w}<col style:width="{w}px" />{/each}</colgroup>
         <thead><tr><th class="n">#</th>{#each result.columns as c}<th title={c}>{c}</th>{/each}</tr></thead>
-        <tbody>
+        <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+        <tbody ondblclick={onDbl} title="Doble clic en el número de fila para ver la fila como JSON">
           {#if rng.before > 0}<tr class="pad" aria-hidden="true" style:height="{rng.before}px"><td colspan={result.columns.length + 1}></td></tr>{/if}
           {#each { length: rng.end - rng.start } as _, k (rng.start + k)}
             {@const i = rng.start + k}

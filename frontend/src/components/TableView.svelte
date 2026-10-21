@@ -5,6 +5,7 @@
   import { copyText } from '../lib/clipboard'
   import { api, errMsg } from '../lib/api'
   import { ui } from '../lib/ui.svelte'
+  import { parseJson, rowToJson } from '../lib/json'
   import StructureView from './StructureView.svelte'
   import Menu, { type MenuItem } from './Menu.svelte'
   import { RowWindow, columnWidths } from '../lib/virtual.svelte'
@@ -70,6 +71,13 @@
     selected = cell
     const v = cell.draft === null ? t.value(cell.row, cell.col) : (t.drafts[cell.draft][cell.col] ?? null)
     const items: MenuItem[] = [{ label: 'Copiar valor', icon: 'copy', disabled: v === null, run: () => void copyText(v ?? '') }]
+    if (typeof v === 'string' && parseJson(v) !== undefined) {
+      items.push({ label: 'Ver como JSON…', icon: 'view', run: () => { ui.json = { title: `${t.loc.table}.${cell.col}`, text: v } } })
+    }
+    if (cell.draft === null) {
+      const names = t.visibleColumns.map((c) => c.name)
+      items.push({ label: 'Ver fila como JSON…', icon: 'sql', run: () => { ui.json = { title: `${t.loc.table} · fila ${t.firstRow + cell.row}`, text: rowToJson(names, names.map((n) => (t.isEdited(cell.row, n) ? t.value(cell.row, n) : t.page?.rows[cell.row]?.[t.colIndex(n)]))) } } })
+    }
     if (cell.draft === null && isBinary(cell.col)) {
       const ok = canViewCell(cell.row, cell.col)
       items.push(
