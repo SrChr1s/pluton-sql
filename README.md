@@ -20,7 +20,30 @@ Instalar el CLI de Wails:
 go install github.com/wailsapp/wails/v2/cmd/wails@latest
 ```
 
-Asegúrate de que `~/go/bin` está en tu `PATH`.
+`go install` deja el binario en `$(go env GOPATH)/bin` (por defecto `~/go/bin`). Si `wails version` responde `command not found`, esa carpeta no está en tu `PATH`.
+
+#### Agregar la ruta de Wails al `PATH`
+
+**Linux / macOS** — añade la carpeta a tu shell y recarga:
+
+```bash
+# bash (~/.bashrc) o zsh (~/.zshrc)
+echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.bashrc
+source ~/.bashrc
+
+# fish
+fish_add_path (go env GOPATH)/bin
+```
+
+**Windows (PowerShell)** — añade `%USERPROFILE%\go\bin` al `PATH` del usuario y abre una terminal nueva:
+
+```powershell
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$env:USERPROFILE\go\bin", "User")
+```
+
+También desde *Configuración del sistema → Variables de entorno → Path → Nuevo*.
+
+Comprueba con `wails version`. Sin tocar el `PATH` también sirve `make build WAILS=$HOME/go/bin/wails`.
 
 ### Linux
 
