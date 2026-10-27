@@ -115,7 +115,7 @@ Al subir una etiqueta `vX.Y.Z`, el workflow `.github/workflows/release.yml` ejec
 
 ```bash
 # 1. sube la versión en Makefile (VERSION) y wails.json (info.productVersion), y haz commit
-git tag v0.1.3 && git push origin v0.1.3
+git tag v0.1.4 && git push origin v0.1.4
 ```
 
 La etiqueta debe coincidir con ambas versiones, o el workflow falla antes de construir. Localmente, `make package-windows` hace lo mismo que el job de Windows.
