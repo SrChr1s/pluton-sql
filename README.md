@@ -109,6 +109,17 @@ Los paquetes dependen de GTK 3 y WebKitGTK 4.1 y recomiendan `gnome-keyring` par
 - **Portable:** `make build-windows` deja `build/bin/pluton-sql.exe`, que se ejecuta tal cual.
 - **Instalador:** `make installer-windows` genera un instalador NSIS en `build/bin/` (acceso directo, desinstalador y descarga de WebView2 si falta). Necesita [NSIS](https://nsis.sourceforge.io) (`makensis` en el `PATH`; en Fedora, `sudo dnf install mingw32-nsis`).
 
+### Releases automáticas
+
+Al subir una etiqueta `vX.Y.Z`, el workflow `.github/workflows/release.yml` ejecuta los tests, construye los paquetes de Linux (`.rpm`, `.deb`, `.tar.gz`) y de Windows (instalador y zip portable) y publica la Release con `SHA256SUMS.txt`:
+
+```bash
+# 1. sube la versión en Makefile (VERSION) y wails.json (info.productVersion), y haz commit
+git tag v0.1.3 && git push origin v0.1.3
+```
+
+La etiqueta debe coincidir con ambas versiones, o el workflow falla antes de construir. Localmente, `make package-windows` hace lo mismo que el job de Windows.
+
 ## Ejecutar
 
 ```bash

@@ -5,10 +5,10 @@ GOFLAGS_OVERLAY := -overlay=$(OVERLAY)
 WAILS ?= wails
 TAGS ?= webkit2_41
 
-.PHONY: overlay build build-windows dev test test-frontend test-integration install uninstall package-linux installer-windows
+.PHONY: overlay build build-windows dev test test-frontend test-integration install uninstall package-linux installer-windows package-windows
 
 # Versión de los paquetes. Mantenla igual que info.productVersion de wails.json (la usa el instalador de Windows).
-VERSION ?= 0.1.2
+VERSION ?= 0.1.3
 BIN := build/bin/pluton-sql
 # Instalación de usuario por defecto (sin sudo). Para todo el sistema: sudo make install PREFIX=/usr/local
 PREFIX ?= $(HOME)/.local
@@ -73,3 +73,14 @@ package-linux: build
 installer-windows: overlay
 	@command -v makensis >/dev/null || { echo "Falta NSIS (makensis). En Fedora: sudo dnf install mingw32-nsis; en Windows: https://nsis.sourceforge.io"; exit 1; }
 	GOFLAGS=$(GOFLAGS_OVERLAY) $(WAILS) build -platform windows/amd64 -nsis
+
+# Paquetes de Windows en dist/: instalador NSIS (requiere makensis) y zip portable (requiere zip).
+package-windows: overlay
+	@command -v makensis >/dev/null || { echo "Falta NSIS (makensis)"; exit 1; }
+	GOFLAGS=$(GOFLAGS_OVERLAY) $(WAILS) build -clean -platform windows/amd64 -nsis -trimpath
+	mkdir -p dist/stage/PlutonSQL
+	cp build/bin/pluton-sql-amd64-installer.exe dist/pluton-sql_$(VERSION)_windows_amd64_setup.exe
+	cp build/bin/pluton-sql.exe LICENSE README.md dist/stage/PlutonSQL/
+	cd dist/stage && zip -qr ../pluton-sql_$(VERSION)_windows_amd64.zip PlutonSQL
+	rm -rf dist/stage
+	@ls -la dist
