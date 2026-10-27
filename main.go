@@ -21,9 +21,14 @@ var icon []byte
 var assets embed.FS
 
 func main() {
-	// WebKitGTK con NVIDIA en Wayland puede mostrar la ventana en blanco.
+	// WebKitGTK pinta con la GPU (DMABUF); desactivarlo manda todo el pintado a la CPU y las animaciones
+	// bajan de 60 a ~25 fps. Solo se desactiva en X11, donde con NVIDIA puede dejar la ventana en blanco;
+	// en Wayland no hace falta. Si ya definiste la variable ("0" = GPU, "1" = CPU), se respeta tu valor.
 	if runtime.GOOS == "linux" && os.Getenv("WEBKIT_DISABLE_DMABUF_RENDERER") == "" {
-		os.Setenv("WEBKIT_DISABLE_DMABUF_RENDERER", "1")
+		onX11 := os.Getenv("GDK_BACKEND") == "x11" || os.Getenv("WAYLAND_DISPLAY") == ""
+		if onX11 {
+			os.Setenv("WEBKIT_DISABLE_DMABUF_RENDERER", "1")
+		}
 	}
 
 	app, err := NewApp()

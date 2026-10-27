@@ -135,7 +135,7 @@ make dev
 ### Linux: Wayland, X11 y NVIDIA
 
 - En Wayland funciona de forma nativa. Para forzar X11: `GDK_BACKEND=x11 ./build/bin/pluton-sql`.
-- Con GPU NVIDIA, WebKitGTK puede mostrar la ventana en blanco. La aplicación define `WEBKIT_DISABLE_DMABUF_RENDERER=1` al arrancar para evitarlo. Si tú ya definiste esa variable, se respeta tu valor.
+- En X11 con GPU NVIDIA, WebKitGTK puede mostrar la ventana en blanco. Ahí la aplicación define `WEBKIT_DISABLE_DMABUF_RENDERER=1` al arrancar para evitarlo, a costa de pintar con la CPU (animaciones más lentas). En Wayland no la define, para que WebKit use la GPU. Si tú ya definiste esa variable (`0` = GPU, `1` = CPU), se respeta tu valor.
 
 ## Uso
 
