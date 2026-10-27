@@ -47,6 +47,7 @@
       <span>Sin datos</span>
     {/if}
     <span class="grow"></span>
+    <span class="ver" title="Versión instalada de Plutón SQL">v{__APP_VERSION__}</span>
     {#if q}
       <button class="ghost" title="Exportar el resultado a CSV, JSON o INSERT (se vuelve a ejecutar y se exportan todas las filas)" disabled={!r?.isQuery} onclick={exportQuery}>
         <Icon name="download" size={13} /> Exportar
@@ -66,5 +67,6 @@
   .name { overflow: hidden; text-overflow: ellipsis; }
   .grow { flex: 1; }
   .drv { font-weight: 500; color: var(--accent); }
+  .ver { color: var(--accent); font-variant-numeric: tabular-nums; }
   .right button { padding: 3px 8px; font-size: 12px; }
 </style>

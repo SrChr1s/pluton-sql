@@ -21,6 +21,7 @@
   <div class="content">
     <Logo size={200} animate />
     <h1>Plutón SQL</h1>
+    <span class="ver">v{__APP_VERSION__}</span>
     <p>{hasConnections ? 'Elige una conexión en el panel lateral y explora tus bases de datos.' : 'Crea tu primera conexión a PostgreSQL, MySQL, SQLite o SQL Server.'}</p>
     <button class="primary" onclick={onnew}><Icon name="plus" size={14} /> Nueva conexión</button>
   </div>
@@ -32,6 +33,7 @@
   .sky { position: absolute; inset: 0; width: 100%; height: 100%; }
   .star { animation: twinkle 5s ease-in-out infinite; }
   .content { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding: 24px; color: var(--muted); }
+  .ver { font-size: 12px; font-variant-numeric: tabular-nums; padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; color: var(--accent); }
   h1 { margin: 6px 0 0; font-size: 26px; letter-spacing: .02em; color: var(--text); }
   p { margin: 0 0 8px; max-width: 380px; }
   @keyframes twinkle { 50% { opacity: .15; } }
