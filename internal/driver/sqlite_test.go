@@ -186,3 +186,13 @@ func TestSQLiteListAllColumns(t *testing.T) {
 		t.Errorf("tipo de dato: %+v", got[1])
 	}
 }
+
+func TestSQLiteNoRoutines(t *testing.T) {
+	d, _ := Get("sqlite")
+	if r, err := d.ListRoutines(context.Background(), nil, ""); r != nil || err != nil {
+		t.Fatalf("ListRoutines = %v, %v", r, err)
+	}
+	if _, err := d.RoutineDDL(context.Background(), nil, "", RoutineInfo{}); err == nil {
+		t.Fatal("RoutineDDL debería fallar en SQLite")
+	}
+}

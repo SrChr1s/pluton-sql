@@ -5,6 +5,7 @@ package driver_test
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -90,6 +91,24 @@ func TestIntegration(t *testing.T) {
 			}
 			if i := got["ix_clientes_edad_alta"]; i.Unique || !reflect.DeepEqual(i.Columns, []string{"edad", "alta"}) {
 				t.Errorf("ix_clientes_edad_alta = %+v (orden de columnas)", i)
+			}
+
+			routines, err := d.ListRoutines(ctx, db, tc.schema)
+			if err != nil {
+				t.Fatal(err)
+			}
+			kinds := map[string]driver.RoutineInfo{}
+			for _, r := range routines {
+				kinds[r.Name] = r
+			}
+			if kinds["f_total_clientes"].Type != "function" || kinds["p_alta_cliente"].Type != "procedure" {
+				t.Fatalf("ListRoutines = %+v", routines)
+			}
+			for name, want := range map[string]string{"f_total_clientes": "f_total_clientes", "p_alta_cliente": "p_alta_cliente"} {
+				def, err := d.RoutineDDL(ctx, db, tc.schema, kinds[name])
+				if err != nil || !strings.Contains(strings.ToUpper(def), "CREATE") || !strings.Contains(def, want) {
+					t.Errorf("RoutineDDL(%s) = %q, %v", name, def, err)
+				}
 			}
 
 			var n int

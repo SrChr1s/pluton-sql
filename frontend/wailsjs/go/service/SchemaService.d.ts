@@ -11,6 +11,10 @@ export function Index(arg1:string,arg2:string):Promise<service.SchemaIndex>;
 
 export function Indexes(arg1:string,arg2:string,arg3:string,arg4:string):Promise<Array<driver.IndexInfo>>;
 
+export function RoutineDefinition(arg1:string,arg2:string,arg3:driver.RoutineInfo):Promise<string>;
+
+export function Routines(arg1:string,arg2:string,arg3:string):Promise<Array<driver.RoutineInfo>>;
+
 export function Schemas(arg1:string,arg2:string):Promise<Array<string>>;
 
 export function Tables(arg1:string,arg2:string,arg3:string):Promise<Array<driver.TableInfo>>;

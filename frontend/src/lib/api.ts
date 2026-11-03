@@ -15,6 +15,7 @@ import type { config, driver, service, history, transfer } from '../../wailsjs/g
 export type Profile = config.ConnectionProfile
 export type Workspace = config.Workspace
 export type Table = driver.TableInfo
+export type Routine = driver.RoutineInfo
 export type Column = driver.ColumnInfo
 export type Index = driver.IndexInfo
 export type QueryResult = service.QueryResult
@@ -60,6 +61,8 @@ export const api = {
   schemas: list(Schema.Schemas),
   schemaIndex: Schema.Index,
   tables: list(Schema.Tables),
+  routines: list(Schema.Routines),
+  routineDefinition: Schema.RoutineDefinition,
   columns: list(Schema.Columns),
   indexes: list(Schema.Indexes),
   execute: Query.Execute,

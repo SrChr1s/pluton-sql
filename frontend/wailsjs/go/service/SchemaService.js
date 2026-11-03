@@ -18,6 +18,14 @@ export function Indexes(arg1, arg2, arg3, arg4) {
   return window['go']['service']['SchemaService']['Indexes'](arg1, arg2, arg3, arg4);
 }
 
+export function RoutineDefinition(arg1, arg2, arg3) {
+  return window['go']['service']['SchemaService']['RoutineDefinition'](arg1, arg2, arg3);
+}
+
+export function Routines(arg1, arg2, arg3) {
+  return window['go']['service']['SchemaService']['Routines'](arg1, arg2, arg3);
+}
+
 export function Schemas(arg1, arg2) {
   return window['go']['service']['SchemaService']['Schemas'](arg1, arg2);
 }

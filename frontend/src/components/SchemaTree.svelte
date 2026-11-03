@@ -5,7 +5,7 @@
   import { ws } from '../lib/workspace.svelte'
   import { copyText } from '../lib/clipboard'
   import Menu, { type MenuItem } from './Menu.svelte'
-  import { api, errMsg, type Profile, type Table, type Column } from '../lib/api'
+  import { api, errMsg, type Profile, type Table, type Column, type Routine } from '../lib/api'
 
   // Se explora una sola base de datos a la vez: la elegida en el selector. Cambiarla remonta el árbol.
   let { profile, database, filter = '', ontable, onstructure, oncreate, count = $bindable(0), expanded = $bindable(false) }: {
@@ -26,6 +26,7 @@
   let schemas = $state<string[] | null>(null)
   let tables = $state<Record<string, Table[]>>({})
   let columns = $state<Record<string, Column[]>>({})
+  let routines = $state<Record<string, Routine[]>>({})
   let nodes = $state<Record<string, Node>>({})
   let error = $state('')
   let loading = $state(true)
@@ -99,6 +100,15 @@
     loading = false
   }
 
+  /** SQLite no tiene procedimientos ni funciones. */
+  const hasRoutines = $derived(profile.driver !== 'sqlite')
+  const GROUPS = [{ kind: 'procedure', label: 'Procedimientos' }, { kind: 'function', label: 'Funciones' }] as const
+  const routinesOf = (s: string, kind: string) => (routines[s] ?? []).filter((r) => r.type === kind)
+  const visibleRoutines = (s: string, kind: string) => (q ? routinesOf(s, kind).filter((r) => r.name.toLowerCase().includes(q)) : routinesOf(s, kind))
+  // Las rutinas se piden al desplegar la primera carpeta de un esquema; la otra carpeta ya las tiene.
+  const toggleGroup = (s: string, kind: string) =>
+    toggle(`${s}#${kind}`, async () => { if (!routines[s]) routines[s] = await api.routines(profile.id, db, s) })
+
   const toggleSchema = (s: string) => toggle(s, () => loadTables(s))
   const toggleTable = (s: string, t: string) =>
     toggle(`${s}/${t}`, async () => { columns[`${s}/${t}`] = await api.columns(profile.id, db, s, t) })
@@ -111,7 +121,14 @@
   function schemaMenu(e: MouseEvent, s: string) {
     showMenu(e, [
       { label: 'Nueva tabla', icon: 'table', run: () => oncreate(db, s) },
-      { label: 'Recargar', icon: 'refresh', run: () => void loadTables(s) },
+      { label: 'Recargar', icon: 'refresh', run: () => { void loadTables(s); if (routines[s]) void api.routines(profile.id, db, s).then((r) => (routines[s] = r)) } },
+    ])
+  }
+
+  function routineMenu(e: MouseEvent, r: Routine) {
+    showMenu(e, [
+      { label: 'Ver definición', icon: 'routine', run: () => void ws.openRoutine(db, r) },
+      { label: 'Copiar nombre', icon: 'copy', run: () => { void copyText(r.name); ui.toast('Nombre copiado') } },
     ])
   }
 
@@ -163,6 +180,25 @@
   {#if q && tables[s] && visible(tables[s]).length === 0}
     <p class="empty" style:padding-left="{8 + depth * 14 + 16}px">Sin coincidencias</p>
   {/if}
+  {@render routineGroups(s, depth)}
+{/snippet}
+
+{#snippet routineGroups(s: string, depth: number)}
+  {#if hasRoutines && tables[s]}
+    {#each GROUPS as g (g.kind)}
+      {@const k = `${s}#${g.kind}`}
+      {@const n = routines[s] ? ` (${routinesOf(s, g.kind).length})` : ''}
+      {@render row(depth, node(k).open, node(k).loading, 'layers', g.label + n, () => toggleGroup(s, g.kind))}
+      {#if node(k).error}<p class="err" style:padding-left="{8 + (depth + 1) * 14 + 16}px">{node(k).error}</p>{/if}
+      {#if node(k).open}
+        {#each visibleRoutines(s, g.kind) as r (r.id)}
+          {@render row(depth + 1, null, false, 'routine', r.args ? `${r.name}(${r.args})` : r.name, () => void ws.openRoutine(db, r), undefined, undefined, undefined, undefined, (e) => routineMenu(e, r))}
+        {:else}
+          <p class="empty" style:padding-left="{8 + (depth + 1) * 14 + 16}px">{q ? 'Sin coincidencias' : 'Ninguno'}</p>
+        {/each}
+      {/if}
+    {/each}
+  {/if}
 {/snippet}
 
 <div class="tree" role="tree">
@@ -192,6 +228,7 @@
   .item :global(svg) { color: var(--muted); }
   .item[data-kind="table"] :global(svg) { color: var(--accent); }
   .item[data-kind="view"] :global(svg) { color: var(--ok); }
+  .item[data-kind="routine"] :global(svg) { color: var(--warn, var(--accent)); }
   .item[data-kind="database"] :global(svg) { color: var(--text); }
   .label { overflow: hidden; text-overflow: ellipsis; flex: 1; }
   .info { opacity: 0; padding: 2px; margin-left: auto; }

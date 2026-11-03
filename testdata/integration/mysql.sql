@@ -13,3 +13,5 @@ CREATE VIEW v_clientes AS SELECT id, email FROM clientes;
 INSERT INTO clientes (email, edad, bin) VALUES ('a@x.com', 30, 0xFF00), ('b@x.com', NULL, NULL);
 CREATE TABLE otra.t (id INT PRIMARY KEY);
 GRANT ALL ON otra.* TO 'pluton'@'%';
+CREATE FUNCTION f_total_clientes() RETURNS INT READS SQL DATA RETURN (SELECT COUNT(*) FROM clientes);
+CREATE PROCEDURE p_alta_cliente(IN p_email VARCHAR(100)) INSERT INTO clientes (email) VALUES (p_email);

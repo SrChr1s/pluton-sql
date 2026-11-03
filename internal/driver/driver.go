@@ -99,6 +99,11 @@ type Dialect interface {
 	// TableDDL devuelve el SQL que crea la tabla o vista (con sus índices y claves).
 	TableDDL(ctx context.Context, db *sql.DB, schema, table string, isView bool) (string, error)
 
+	// ListRoutines lista procedimientos y funciones de un esquema (MySQL: de la base conectada; SQLite: ninguno).
+	ListRoutines(ctx context.Context, db *sql.DB, schema string) ([]RoutineInfo, error)
+	// RoutineDDL devuelve el SQL que crea la rutina.
+	RoutineDDL(ctx context.Context, db *sql.DB, schema string, r RoutineInfo) (string, error)
+
 	// Quote cita un identificador (tabla, columna...) escapando las comillas.
 	Quote(ident string) string
 	// Param devuelve el marcador del parámetro n (1-based): $1, ?, @p1.

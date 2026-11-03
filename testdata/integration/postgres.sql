@@ -10,3 +10,5 @@ CREATE INDEX ix_clientes_edad_alta ON public.clientes (edad, alta);
 CREATE VIEW public.v_clientes AS SELECT id, email FROM public.clientes;
 CREATE TABLE ventas.pedidos (id bigserial PRIMARY KEY, cliente_id int NOT NULL, total numeric(10,2));
 INSERT INTO public.clientes (email, edad) VALUES ('a@x.com', 30), ('b@x.com', NULL);
+CREATE FUNCTION public.f_total_clientes() RETURNS bigint LANGUAGE sql AS $$ SELECT count(*) FROM public.clientes $$;
+CREATE PROCEDURE public.p_alta_cliente(p_email text) LANGUAGE sql AS $$ INSERT INTO public.clientes (email) VALUES (p_email) $$;

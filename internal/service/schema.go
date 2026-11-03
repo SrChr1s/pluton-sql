@@ -67,3 +67,25 @@ func (s *SchemaService) Indexes(profileID, database, schema, table string) ([]dr
 	}
 	return d.ListIndexes(c, db, schema, table)
 }
+
+// Routines lista los procedimientos y funciones de un esquema.
+func (s *SchemaService) Routines(profileID, database, schema string) ([]driver.RoutineInfo, error) {
+	c, cancel := ctx()
+	defer cancel()
+	db, d, err := s.sess.Get(c, profileID, database)
+	if err != nil {
+		return nil, err
+	}
+	return d.ListRoutines(c, db, schema)
+}
+
+// RoutineDefinition devuelve el SQL de creación de una rutina.
+func (s *SchemaService) RoutineDefinition(profileID, database string, r driver.RoutineInfo) (string, error) {
+	c, cancel := ctx()
+	defer cancel()
+	db, d, err := s.sess.Get(c, profileID, database)
+	if err != nil {
+		return "", err
+	}
+	return d.RoutineDDL(c, db, r.Schema, r)
+}

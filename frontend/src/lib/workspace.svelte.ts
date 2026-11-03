@@ -1,4 +1,4 @@
-import { api, errMsg, type Profile, type QueryResult, type Workspace as WorkspaceInfo } from './api'
+import { api, errMsg, type Profile, type Routine, type QueryResult, type Workspace as WorkspaceInfo } from './api'
 import { TableState, type TableLocation } from './table.svelte'
 import { quoteIdent } from './sql'
 import type { SchemaIndex } from './sqlcomplete'
@@ -416,6 +416,21 @@ class Workspace {
   openSql(sql: string, title: string) {
     const t = this.newTab({ title, sql })
     return t
+  }
+
+  /** Abre la definición de un procedimiento o función en una pestaña de consulta (sin ejecutarla). */
+  async openRoutine(database: string, r: Routine) {
+    const p = this.active
+    if (!p) return
+    const title = `${r.name}.sql`
+    const open = this.tabs.find((t): t is QueryTab => t.kind === 'query' && t.title === title && t.database === database && t.lastSql === '')
+    if (open) return this.select(open.id)
+    try {
+      const sql = await api.routineDefinition(p.id, database, r)
+      this.newTab({ title, database, sql })
+    } catch (e) {
+      ui.toast(`No se pudo leer la definición: ${errMsg(e)}`, 'err')
+    }
   }
 
   /** Abre los datos de una tabla en una pestaña editable (reutiliza la pestaña si ya está abierta). */
