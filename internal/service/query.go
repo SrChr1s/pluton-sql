@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"strings"
 	"sync"
@@ -53,12 +54,17 @@ func (s *QueryService) Execute(queryID, profileID, database, sqlText string) (*Q
 		s.mu.Unlock()
 	}()
 
-	db, _, err := s.pools.Get(ctx, profileID, database)
+	db, d, err := s.pools.Get(ctx, profileID, database)
 	if err != nil {
 		return nil, err // no hubo ejecución: no se registra en el historial
 	}
 	start := time.Now()
-	res, err := s.run(ctx, db, sqlText)
+	var res *QueryResult
+	if d.Name() == "mssql" {
+		res, err = s.runBatches(ctx, db, sqlText)
+	} else {
+		res, err = s.run(ctx, db, sqlText)
+	}
 	if res != nil {
 		res.DurationMs = time.Since(start).Milliseconds()
 	}
@@ -79,7 +85,7 @@ func (s *QueryService) Execute(queryID, profileID, database, sqlText string) (*Q
 	return res, err
 }
 
-func (s *QueryService) run(ctx context.Context, db *sql.DB, sqlText string) (*QueryResult, error) {
+func (s *QueryService) run(ctx context.Context, db querier, sqlText string) (*QueryResult, error) {
 	res := &QueryResult{Columns: []string{}, Rows: [][]any{}}
 	if returnsRows(sqlText) {
 		res.IsQuery = true
@@ -99,6 +105,49 @@ func (s *QueryService) run(ctx context.Context, db *sql.DB, sqlText string) (*Qu
 		res.RowsAffected, _ = r.RowsAffected()
 	}
 	return res, nil
+}
+
+// querier es lo que comparten *sql.DB y *sql.Conn.
+type querier interface {
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+// runBatches ejecuta un script de SQL Server separado por líneas GO. Todos los lotes van por la misma
+// conexión (un USE o un SET debe seguir vigente en el lote siguiente). Devuelve el resultado del último
+// lote que produce filas; si ninguno lo hace, la suma de filas afectadas.
+func (s *QueryService) runBatches(ctx context.Context, db *sql.DB, script string) (*QueryResult, error) {
+	batches := splitGoBatches(script)
+	if len(batches) <= 1 && !strings.Contains(strings.ToUpper(script), "GO") {
+		return s.run(ctx, db, script)
+	}
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close() // al devolverla al pool, el driver reinicia la sesión (vuelve a la base original)
+	var last *QueryResult
+	var affected int64
+	for i, b := range batches {
+		for n := 0; n < b.count; n++ {
+			r, err := s.run(ctx, conn, b.sql)
+			if err != nil {
+				if len(batches) > 1 {
+					err = fmt.Errorf("lote %d de %d: %w", i+1, len(batches), err)
+				}
+				return nil, err
+			}
+			if r.IsQuery {
+				last = r
+			} else {
+				affected += r.RowsAffected
+			}
+		}
+	}
+	if last == nil {
+		last = &QueryResult{Columns: []string{}, Rows: [][]any{}, RowsAffected: affected}
+	}
+	return last, nil
 }
 
 // Cancel interrumpe una consulta en curso.
