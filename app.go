@@ -25,6 +25,7 @@ type App struct {
 	Saved       *service.SavedQueryService
 	Export      *service.ExportService
 	Import      *service.ImportService
+	Script      *service.ScriptService
 	events      *service.Events
 	Dialogs     *service.DialogService
 }
@@ -49,6 +50,7 @@ func NewApp() (*App, error) {
 		events:      events,
 		Export:      service.NewExportService(sess, events),
 		Import:      service.NewImportService(sess, events),
+		Script:      service.NewScriptService(sess, events),
 		sess:        sess,
 		Connections: service.NewConnectionService(store, sess, func(id string) { _ = histStore.Clear(id) }),
 		Workspaces:  service.NewWorkspaceService(wsStore, store),

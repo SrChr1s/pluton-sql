@@ -1,4 +1,4 @@
-import type { Profile, TableStructure } from './api'
+import type { Profile, ScriptObject, TableStructure } from './api'
 import type { TableLocation } from './table.svelte'
 
 /** Diálogos propios: los confirm()/alert() nativos no son fiables en el webview. */
@@ -8,6 +8,9 @@ export type ConfirmOptions = { title: string; message?: string; confirmLabel?: s
 export type ExportSource =
   | { kind: 'query'; profile: string; database: string; sql: string; name: string }
   | { kind: 'table'; profile: string; database: string; schema: string; table: string; filter: string; orderBy: string; desc: boolean; name: string }
+
+/** Asistente "Generar scripts": con schema, ese esquema viene preseleccionado; con object, solo ese objeto. */
+export type ScriptSource = { profile: string; database: string; schema?: string; object?: ScriptObject }
 
 export type ImportTarget = { loc: TableLocation; columns: { name: string; type: string; primaryKey: boolean; autoIncrement: boolean }[]; onDone: () => void }
 
@@ -29,6 +32,7 @@ class UI {
   connForm = $state<{ profile: Profile | null } | null>(null)
   exporting = $state<ExportSource | null>(null)
   importing = $state<ImportTarget | null>(null)
+  scripting = $state<ScriptSource | null>(null)
   viewing = $state<CellView | null>(null)
   json = $state<JsonView | null>(null)
   toasts = $state<Toast[]>([])

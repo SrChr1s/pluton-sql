@@ -68,6 +68,7 @@ func main() {
 			app.Saved,
 			app.Export,
 			app.Import,
+			app.Script,
 			app.Dialogs,
 		},
 	})

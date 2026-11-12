@@ -17,6 +17,7 @@
   import CellViewer from './components/CellViewer.svelte'
   import JsonViewer from './components/JsonViewer.svelte'
   import ImportDialog from './components/ImportDialog.svelte'
+  import ScriptDialog from './components/ScriptDialog.svelte'
   import PromptDialog from './components/PromptDialog.svelte'
   import Toasts from './components/Toasts.svelte'
   import { ui } from './lib/ui.svelte'
@@ -170,6 +171,7 @@
 {#if ui.viewing}{#key ui.viewing}<CellViewer view={ui.viewing} onclose={() => (ui.viewing = null)} />{/key}{/if}
 {#if ui.exporting}{#key ui.exporting}<ExportDialog source={ui.exporting} oncancel={() => (ui.exporting = null)} />{/key}{/if}
 {#if ui.importing}{#key ui.importing}<ImportDialog target={ui.importing} oncancel={() => (ui.importing = null)} />{/key}{/if}
+{#if ui.scripting}{#key ui.scripting}<ScriptDialog source={ui.scripting} oncancel={() => (ui.scripting = null)} />{/key}{/if}
 <ConfirmDialog />
 <PromptDialog />
 <Toasts />

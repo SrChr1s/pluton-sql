@@ -221,14 +221,30 @@ type sqlWriter struct {
 	cols   string
 	batch  int
 	rows   []string
+	opt    SQLOptions
+}
+
+// SQLOptions ajusta la forma de los INSERT para scripts que se ejecutan tal cual.
+type SQLOptions struct {
+	// Before y After se escriben (cada uno en su línea) alrededor de cada INSERT: p. ej. SET IDENTITY_INSERT.
+	Before, After string
+	// Override va entre la lista de columnas y VALUES (PostgreSQL: OVERRIDING SYSTEM VALUE).
+	Override string
+	// Sep se escribe tras cada INSERT (SQL Server: "GO").
+	Sep string
 }
 
 // NewSQL escribe INSERT por lotes. table debe venir ya citado; batch es el nº de filas por sentencia.
 func NewSQL(w io.Writer, q SQLQuoter, table string, batch int) Writer {
+	return NewSQLWith(w, q, table, batch, SQLOptions{})
+}
+
+// NewSQLWith es NewSQL con opciones.
+func NewSQLWith(w io.Writer, q SQLQuoter, table string, batch int, opt SQLOptions) Writer {
 	if batch <= 0 {
 		batch = 100
 	}
-	return &sqlWriter{w: w, q: q, engine: q.Name(), table: table, batch: batch}
+	return &sqlWriter{w: w, q: q, engine: q.Name(), table: table, batch: batch, opt: opt}
 }
 
 func (s *sqlWriter) Begin(cols []string) error {
@@ -310,8 +326,23 @@ func (s *sqlWriter) flush() error {
 	if len(s.rows) == 0 {
 		return nil
 	}
-	_, err := fmt.Fprintf(s.w, "INSERT INTO %s (%s) VALUES\n%s;\n", s.table, s.cols, strings.Join(s.rows, ",\n"))
+	var b strings.Builder
+	if s.opt.Before != "" {
+		b.WriteString(s.opt.Before + "\n")
+	}
+	fmt.Fprintf(&b, "INSERT INTO %s (%s) ", s.table, s.cols)
+	if s.opt.Override != "" {
+		b.WriteString(s.opt.Override + " ")
+	}
+	fmt.Fprintf(&b, "VALUES\n%s;\n", strings.Join(s.rows, ",\n"))
+	if s.opt.After != "" {
+		b.WriteString(s.opt.After + "\n")
+	}
+	if s.opt.Sep != "" {
+		b.WriteString(s.opt.Sep + "\n")
+	}
 	s.rows = s.rows[:0]
+	_, err := io.WriteString(s.w, b.String())
 	return err
 }
 

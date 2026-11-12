@@ -195,30 +195,79 @@ func (mssql) ListForeignKeys(ctx context.Context, db *sql.DB, schema, table stri
 // TableDDL: las vistas se leen tal cual; las tablas se reconstruyen desde el catálogo
 // (SQL Server no tiene SHOW CREATE), por lo que puede omitir CHECK, triggers y opciones de almacenamiento.
 func (m mssql) TableDDL(ctx context.Context, db *sql.DB, schema, table string, isView bool) (string, error) {
-	qn := m.Quote(schema) + "." + m.Quote(table)
 	if isView {
 		var def sql.NullString
+		qn := m.Quote(schema) + "." + m.Quote(table)
 		if err := db.QueryRowContext(ctx, `SELECT OBJECT_DEFINITION(OBJECT_ID(@p1))`, qn).Scan(&def); err != nil {
 			return "", err
 		}
 		return strings.TrimSpace(def.String), nil
 	}
-	cols, err := m.ListColumns(ctx, db, schema, table)
+	ts, err := m.TableScript(ctx, db, schema, table)
 	if err != nil {
 		return "", err
+	}
+	out := ts.Create
+	if tail := append(append([]string{}, ts.Indexes...), ts.ForeignKeys...); len(tail) > 0 {
+		out += "\n\n" + strings.Join(tail, "\n")
+	}
+	return out, nil
+}
+
+// TableScript reconstruye la tabla desde el catálogo. Las columnas calculadas se escriben como "AS (expresión)"
+// y, igual que las rowversion, se marcan para no insertarlas.
+func (m mssql) TableScript(ctx context.Context, db *sql.DB, schema, table string) (TableScript, error) {
+	var ts TableScript
+	qn := m.Quote(schema) + "." + m.Quote(table)
+	cols, err := m.ListColumns(ctx, db, schema, table)
+	if err != nil {
+		return ts, err
 	}
 	idxs, err := m.ListIndexes(ctx, db, schema, table)
 	if err != nil {
-		return "", err
+		return ts, err
 	}
 	fks, err := m.ListForeignKeys(ctx, db, schema, table)
 	if err != nil {
-		return "", err
+		return ts, err
 	}
+
+	type special struct {
+		computed, persisted bool
+		def                 string
+	}
+	specials := map[string]special{}
+	// Es de mejor esfuerzo: sin permiso sobre el catálogo la tabla se escribe sin distinguir columnas calculadas.
+	if rows, err := db.QueryContext(ctx, `SELECT c.name, c.is_computed, ISNULL(cc.definition, ''), ISNULL(cc.is_persisted, 0)
+		FROM sys.columns c JOIN sys.types t ON t.user_type_id = c.user_type_id
+		LEFT JOIN sys.computed_columns cc ON cc.object_id = c.object_id AND cc.column_id = c.column_id
+		WHERE c.object_id = OBJECT_ID(@p1) AND (c.is_computed = 1 OR t.name = 'timestamp')`, qn); err == nil {
+		for rows.Next() {
+			var name string
+			var sp special
+			if rows.Scan(&name, &sp.computed, &sp.def, &sp.persisted) == nil {
+				specials[name] = sp
+			}
+		}
+		rows.Close()
+	}
+
 	var lines []string
 	for _, c := range cols {
+		if sp, ok := specials[c.Name]; ok {
+			ts.SkipColumns = append(ts.SkipColumns, c.Name)
+			if sp.computed {
+				l := "    " + m.Quote(c.Name) + " AS " + sp.def
+				if sp.persisted {
+					l += " PERSISTED"
+				}
+				lines = append(lines, l)
+				continue
+			}
+		}
 		l := "    " + m.Quote(c.Name) + " " + c.Type
 		if c.AutoIncrement {
+			ts.Identity = true
 			var seed, inc sql.NullInt64
 			_ = db.QueryRowContext(ctx, `SELECT CAST(seed_value AS bigint), CAST(increment_value AS bigint) FROM sys.identity_columns
 				WHERE object_id = OBJECT_ID(@p1) AND name = @p2`, qn, c.Name).Scan(&seed, &inc)
@@ -235,7 +284,6 @@ func (m mssql) TableDDL(ctx context.Context, db *sql.DB, schema, table string, i
 		}
 		lines = append(lines, l)
 	}
-	var tail []string
 	for _, ix := range idxs {
 		q := make([]string, len(ix.Columns))
 		for i, c := range ix.Columns {
@@ -249,7 +297,7 @@ func (m mssql) TableDDL(ctx context.Context, db *sql.DB, schema, table string, i
 			if ix.Unique {
 				u = "UNIQUE "
 			}
-			tail = append(tail, "CREATE "+u+"INDEX "+m.Quote(ix.Name)+" ON "+qn+" ("+strings.Join(q, ", ")+");")
+			ts.Indexes = append(ts.Indexes, "CREATE "+u+"INDEX "+m.Quote(ix.Name)+" ON "+qn+" ("+strings.Join(q, ", ")+");")
 		}
 	}
 	for _, fk := range fks {
@@ -257,12 +305,9 @@ func (m mssql) TableDDL(ctx context.Context, db *sql.DB, schema, table string, i
 		for i := range fk.Columns {
 			cs[i], rs[i] = m.Quote(fk.Columns[i]), m.Quote(fk.RefColumns[i])
 		}
-		tail = append(tail, fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s.%s (%s) ON UPDATE %s ON DELETE %s;",
+		ts.ForeignKeys = append(ts.ForeignKeys, fmt.Sprintf("ALTER TABLE %s ADD CONSTRAINT %s FOREIGN KEY (%s) REFERENCES %s.%s (%s) ON UPDATE %s ON DELETE %s;",
 			qn, m.Quote(fk.Name), strings.Join(cs, ", "), m.Quote(fk.RefSchema), m.Quote(fk.RefTable), strings.Join(rs, ", "), fk.OnUpdate, fk.OnDelete))
 	}
-	out := "CREATE TABLE " + qn + " (\n" + strings.Join(lines, ",\n") + "\n);"
-	if len(tail) > 0 {
-		out += "\n\n" + strings.Join(tail, "\n")
-	}
-	return out, nil
+	ts.Create = "CREATE TABLE " + qn + " (\n" + strings.Join(lines, ",\n") + "\n);"
+	return ts, nil
 }

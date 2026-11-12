@@ -164,3 +164,21 @@ func (d mysqlDialect) TableDDL(ctx context.Context, db *sql.DB, _, table string,
 	}
 	return string(vals[1]) + ";", nil
 }
+
+// TableScript: SHOW CREATE TABLE ya incluye índices y claves foráneas, así que todo va en Create; el script
+// desactiva FOREIGN_KEY_CHECKS mientras crea las tablas y carga los datos.
+func (d mysqlDialect) TableScript(ctx context.Context, db *sql.DB, _, table string) (TableScript, error) {
+	var ts TableScript
+	create, err := d.TableDDL(ctx, db, "", table, false)
+	if err != nil {
+		return ts, err
+	}
+	ts.Create = create
+	// De mejor esfuerzo. "DEFAULT_GENERATED" (valor por defecto con expresión) sí se puede insertar.
+	if names, err := queryStrings(ctx, db, `SELECT column_name FROM information_schema.columns
+		WHERE table_schema=DATABASE() AND table_name=?
+		  AND (extra LIKE '%VIRTUAL%' OR extra LIKE '%STORED%' OR extra LIKE '%PERSISTENT%') ORDER BY ordinal_position`, table); err == nil {
+		ts.SkipColumns = names
+	}
+	return ts, nil
+}

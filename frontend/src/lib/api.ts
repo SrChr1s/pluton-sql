@@ -8,6 +8,7 @@ import * as History from '../../wailsjs/go/service/HistoryService'
 import * as SavedQ from '../../wailsjs/go/service/SavedQueryService'
 import * as Export from '../../wailsjs/go/service/ExportService'
 import * as Import from '../../wailsjs/go/service/ImportService'
+import * as Script from '../../wailsjs/go/service/ScriptService'
 import * as Structure from '../../wailsjs/go/service/StructureService'
 import * as SchemaEdit from '../../wailsjs/go/service/SchemaEditService'
 import type { config, driver, service, history, transfer } from '../../wailsjs/go/models'
@@ -36,6 +37,13 @@ export type ImportRequest = service.ImportRequest
 export type ImportResult = service.ImportResult
 export type CsvPreview = transfer.Preview
 export type ForeignKey = driver.ForeignKeyInfo
+export type ScriptObject = service.ScriptObject
+export type ScriptOptions = service.ScriptOptions
+export type ScriptRequest = service.ScriptRequest
+export type ScriptResult = service.ScriptResult
+export type ObjectScriptRequest = service.ObjectScriptRequest
+/** Progreso de la generación (evento script:progress). */
+export type ScriptProgress = { id: string; phase: 'schema' | 'data'; object: string; done: number; total: number; rows: number }
 
 export const emptyProfile = (): Profile =>
   ({ id: '', name: '', driver: 'postgres', host: 'localhost', port: 5432, user: '', database: '', filePath: '', sslMode: '', tlsMinVersion: '', color: '', workspace: '' }) as Profile
@@ -88,6 +96,10 @@ export const api = {
   importPreview: Import.Preview,
   importRun: Import.Run,
   importCancel: Import.Cancel,
+  scriptObjects: list(Script.Objects),
+  scriptGenerate: Script.Generate,
+  scriptCancel: Script.Cancel,
+  objectScript: Script.ObjectScript,
   chooseExportFile: Dialogs.ChooseExportFile,
   chooseCsvFile: Dialogs.ChooseCSVFile,
   pickSQLiteFile: Dialogs.PickSQLiteFile,

@@ -75,6 +75,21 @@ type ForeignKeyInfo struct {
 	OnDelete   string   `json:"onDelete"`
 }
 
+// TableScript es el DDL de una tabla separado en piezas, para poder ordenar un script de varias tablas:
+// primero todos los CREATE TABLE, después los datos y al final índices y claves foráneas.
+type TableScript struct {
+	Create      string   `json:"create"`      // CREATE TABLE sin claves foráneas (salvo MySQL, que las deja dentro)
+	Indexes     []string `json:"indexes"`     // CREATE INDEX que no respaldan una restricción
+	ForeignKeys []string `json:"foreignKeys"` // ALTER TABLE … ADD CONSTRAINT … FOREIGN KEY
+	// SkipColumns son las columnas que no se pueden insertar: calculadas, rowversion, GENERATED … STORED.
+	SkipColumns []string `json:"skipColumns"`
+	// Identity: la tabla tiene una columna que el motor genera y que al insertar hay que forzar
+	// (SQL Server: IDENTITY_INSERT; PostgreSQL: OVERRIDING SYSTEM VALUE).
+	Identity bool `json:"identity"`
+	// SeqColumns son las columnas serial/identity de PostgreSQL, cuya secuencia hay que reajustar tras insertar datos.
+	SeqColumns []string `json:"seqColumns"`
+}
+
 // Dialect encapsula DSN y consultas de catálogo de un motor.
 //
 // Cada pool *sql.DB está conectado a una sola base de datos, por lo que
@@ -98,6 +113,8 @@ type Dialect interface {
 	ListForeignKeys(ctx context.Context, db *sql.DB, schema, table string) ([]ForeignKeyInfo, error)
 	// TableDDL devuelve el SQL que crea la tabla o vista (con sus índices y claves).
 	TableDDL(ctx context.Context, db *sql.DB, schema, table string, isView bool) (string, error)
+	// TableScript devuelve el DDL de una tabla (no vista) por piezas; ver TableScript.
+	TableScript(ctx context.Context, db *sql.DB, schema, table string) (TableScript, error)
 
 	// ListRoutines lista procedimientos y funciones de un esquema (MySQL: de la base conectada; SQLite: ninguno).
 	ListRoutines(ctx context.Context, db *sql.DB, schema string) ([]RoutineInfo, error)

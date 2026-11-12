@@ -20,6 +20,7 @@
   let expanded = $state(false)
   let tree = $state<{ collapseAll: () => void; expandAll: () => Promise<void>; defaultTarget: () => { database: string; schema: string } | null }>()
   let addMenu = $state(false)
+  let taskMenu = $state(false)
 
   function newTable() {
     const t = tree?.defaultTarget()
@@ -110,6 +111,16 @@
         <span class="tools">
           <button class="ghost icon" title={expanded ? 'Contraer todo' : 'Expandir todo'} aria-label={expanded ? 'Contraer todo' : 'Expandir todo'} onclick={() => (expanded ? tree?.collapseAll() : void tree?.expandAll())}><Icon name={expanded ? 'collapse' : 'chevrons'} size={14} /></button>
           <button class="ghost icon" title={canReload ? 'Recargar esquema' : 'Recargar esquema (elige antes una base de datos)'} aria-label="Recargar esquema" disabled={!canReload} onclick={() => { reloads++; ws.invalidateIndex() }}><Icon name="refresh" size={14} /></button>
+          <span class="addwrap">
+            <button class="ghost icon" title="Tareas" aria-label="Tareas" aria-haspopup="menu" aria-expanded={taskMenu} onpointerdown={(e) => e.stopPropagation()} onclick={() => (taskMenu = !taskMenu)}>
+              <Icon name="file" size={14} /><Icon name="down" size={10} />
+            </button>
+            {#if taskMenu}
+              <Menu right onclose={() => (taskMenu = false)} items={[
+                { label: 'Generar scripts…', icon: 'file', disabled: !ws.treeDb, run: () => (ui.scripting = { profile: ws.active!.id, database: ws.treeDb }) },
+              ]} />
+            {/if}
+          </span>
           <span class="addwrap">
             <button class="ghost icon" title="Nuevo…" aria-label="Nuevo…" aria-haspopup="menu" aria-expanded={addMenu} onpointerdown={(e) => e.stopPropagation()} onclick={() => (addMenu = !addMenu)}>
               <Icon name="plus" size={14} /><Icon name="down" size={10} />

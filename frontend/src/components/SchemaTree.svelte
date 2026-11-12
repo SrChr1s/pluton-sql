@@ -5,7 +5,7 @@
   import { ws } from '../lib/workspace.svelte'
   import { copyText } from '../lib/clipboard'
   import Menu, { type MenuItem } from './Menu.svelte'
-  import { api, errMsg, type Profile, type Table, type Column, type Routine } from '../lib/api'
+  import { api, errMsg, type Profile, type Table, type Column, type Routine, type ScriptObject, type ObjectScriptRequest } from '../lib/api'
 
   // Se explora una sola base de datos a la vez: la elegida en el selector. Cambiarla remonta el árbol.
   let { profile, database, filter = '', ontable, onstructure, oncreate, count = $bindable(0), expanded = $bindable(false) }: {
@@ -118,16 +118,35 @@
   const showMenu = (e: MouseEvent, items: MenuItem[]) => { e.preventDefault(); e.stopPropagation(); ctx = { x: e.clientX, y: e.clientY, items } }
   const locOf = (schema: string, table = '') => ({ profile: profile.id, database: db, schema, table })
 
+  const SCRIPT_TITLES: Record<string, string> = { create: 'CREATE', drop: 'DROP', select: 'SELECT', insert: 'INSERT', data: 'Datos' }
+
+  /** "Script como…": genera el script del objeto y lo abre en una pestaña de consulta nueva (sin ejecutarlo). */
+  async function scriptAs(o: ScriptObject, action: string) {
+    try {
+      const sql = await api.objectScript({ profile: profile.id, database: db, object: o, action } as ObjectScriptRequest)
+      ws.newTab({ title: `${SCRIPT_TITLES[action]} ${o.name}.sql`, database: db, sql })
+    } catch (err) {
+      ui.toast(`No se pudo generar el script: ${errMsg(err)}`, 'err')
+    }
+  }
+  const scriptItem = (o: ScriptObject, actions: string[]): MenuItem => ({
+    label: 'Script como', icon: 'sql',
+    sub: actions.map((a) => ({ label: a === 'data' ? 'INSERT con los datos (máx. 1000 filas)' : a === 'insert' ? 'INSERT (plantilla)' : SCRIPT_TITLES[a], run: () => void scriptAs(o, a) })),
+  })
+
   function schemaMenu(e: MouseEvent, s: string) {
     showMenu(e, [
       { label: 'Nueva tabla', icon: 'table', run: () => oncreate(db, s) },
+      { label: 'Generar scripts…', icon: 'file', run: () => (ui.scripting = { profile: profile.id, database: db, schema: s }) },
       { label: 'Recargar', icon: 'refresh', run: () => { void loadTables(s); if (routines[s]) void api.routines(profile.id, db, s).then((r) => (routines[s] = r)) } },
     ])
   }
 
   function routineMenu(e: MouseEvent, r: Routine) {
+    const o: ScriptObject = { schema: r.schema, name: r.name, kind: r.type, args: r.args, id: r.id } as ScriptObject
     showMenu(e, [
       { label: 'Ver definición', icon: 'routine', run: () => void ws.openRoutine(db, r) },
+      scriptItem(o, ['create', 'drop']),
       { label: 'Copiar nombre', icon: 'copy', run: () => { void copyText(r.name); ui.toast('Nombre copiado') } },
     ])
   }
@@ -137,6 +156,8 @@
       { label: 'Abrir datos', icon: 'table', run: () => ontable(db, s, t.name) },
       { label: 'Ver estructura', icon: 'layers', run: () => onstructure(db, s, t.name) },
       { label: 'Consultar (SELECT)', icon: 'sql', run: () => ws.openTableAsSql(db, s, t.name) },
+      scriptItem({ schema: s, name: t.name, kind: t.type === 'view' ? 'view' : 'table', args: '', id: '' } as ScriptObject,
+        t.type === 'view' ? ['create', 'drop', 'select'] : ['create', 'drop', 'select', 'insert', 'data']),
       { label: 'Copiar nombre', icon: 'copy', run: () => { void copyText(t.name); ui.toast('Nombre copiado') } },
     ]
     if (t.type !== 'view') {

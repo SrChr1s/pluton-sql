@@ -194,3 +194,25 @@ func (sqlite) TableDDL(ctx context.Context, db *sql.DB, _, table string, _ bool)
 	}
 	return strings.Join(out, ";\n\n") + ";", nil
 }
+
+// TableScript: el SQL original de la tabla (con sus claves foráneas) y, aparte, el de sus índices.
+func (sqlite) TableScript(ctx context.Context, db *sql.DB, _, table string) (TableScript, error) {
+	var ts TableScript
+	var create string
+	if err := db.QueryRowContext(ctx, `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ? AND sql IS NOT NULL`, table).Scan(&create); err != nil {
+		return ts, err
+	}
+	ts.Create = create + ";"
+	idx, err := queryStrings(ctx, db, `SELECT sql FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL ORDER BY name`, table)
+	if err != nil {
+		return ts, err
+	}
+	for _, s := range idx {
+		ts.Indexes = append(ts.Indexes, s+";")
+	}
+	// Columnas generadas (hidden 2 = virtual, 3 = almacenada); de mejor esfuerzo, requiere SQLite 3.26.
+	if names, err := queryStrings(ctx, db, `SELECT name FROM pragma_table_xinfo(?) WHERE hidden IN (2, 3)`, table); err == nil {
+		ts.SkipColumns = names
+	}
+	return ts, nil
+}
