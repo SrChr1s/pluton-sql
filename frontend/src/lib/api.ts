@@ -46,7 +46,7 @@ export type ObjectScriptRequest = service.ObjectScriptRequest
 export type ScriptProgress = { id: string; phase: 'schema' | 'data'; object: string; done: number; total: number; rows: number }
 
 export const emptyProfile = (): Profile =>
-  ({ id: '', name: '', driver: 'postgres', host: 'localhost', port: 5432, user: '', database: '', filePath: '', sslMode: '', tlsMinVersion: '', color: '', workspace: '' }) as Profile
+  ({ id: '', name: '', driver: 'postgres', host: 'localhost', port: 0, user: '', database: '', filePath: '', sslMode: '', tlsMinVersion: '', color: '', workspace: '' }) as Profile
 
 // Go serializa un slice nil como null: las listas se normalizan a [] en un solo punto.
 const list = <A extends unknown[], T>(fn: (...a: A) => Promise<T[] | null>) =>
@@ -57,6 +57,7 @@ export const api = {
   defaultPort: Conn.DefaultPort,
   listConnections: list(Conn.List),
   saveConnection: Conn.Save,
+  saveClone: Conn.SaveClone,
   deleteConnection: Conn.Delete,
   disconnectConnection: Conn.Disconnect,
   disconnectDatabase: Conn.DisconnectDatabase,

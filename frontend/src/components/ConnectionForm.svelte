@@ -1,12 +1,23 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { api, emptyProfile, errMsg, type Profile } from '../lib/api'
   import Icon from './Icon.svelte'
   import { ws } from '../lib/workspace.svelte'
 
-  let { profile, onsaved, oncancel }: { profile: Profile | null; onsaved: (p: Profile, connect: boolean) => void; oncancel: () => void } = $props()
+  let { profile, cloneOf = '', onsaved, oncancel, onclone }: {
+    profile: Profile | null
+    /** Id de la conexión de la que se parte: se guarda como una nueva y hereda su contraseña. */
+    cloneOf?: string
+    onsaved: (p: Profile, connect: boolean) => void
+    oncancel: () => void
+    onclone?: (p: Profile) => void
+  } = $props()
 
   let p = $state<Profile>(profile ? { ...emptyProfile(), ...profile } : { ...emptyProfile(), workspace: ws.workspaceId })
   let password = $state('')
+  // null = campo vacío (se ve el placeholder); un puerto 0 guardado también se muestra vacío.
+  let port = $state<number | null>(untrack(() => profile?.port || null))
+  const editing = $derived(!!profile && !cloneOf)
   let showPw = $state(false)
   let drivers = $state<string[]>([])
   let status = $state<{ ok: boolean; msg: string } | null>(null)
@@ -16,9 +27,11 @@
 
   api.drivers().then((d) => (drivers = d))
 
-  async function onDriver() {
-    p.port = await api.defaultPort(p.driver)
-  }
+  // El puerto del motor se muestra como placeholder; si el campo queda vacío se guarda 0 y el servidor usa el predeterminado.
+  let defaultPort = $state(0)
+  $effect(() => { const d = p.driver; api.defaultPort(d).then((n) => { if (p.driver === d) defaultPort = n }) })
+  /** El perfil tal como se envía: un campo de puerto vacío llega como null/NaN y debe ser 0. */
+  const payload = (): Profile => ({ ...p, port: Number(port) || 0 }) as Profile
   // Abre un diálogo nativo; si se cancela ("") conserva la ruta actual.
   async function pick(dialog: () => Promise<string>) {
     try {
@@ -30,16 +43,30 @@
       }
     } catch (e) { status = { ok: false, msg: errMsg(e) } }
   }
+  /** Prueba la conexión con los datos del formulario. Un clon sin contraseña nueva usa la de la original (el servidor la busca por id). */
+  const check = () => api.testConnection(cloneOf ? { ...payload(), id: cloneOf } : payload(), password)
+
   async function test() {
     busy = true; status = null
-    try { await api.testConnection(p, password); status = { ok: true, msg: 'Conexión exitosa' } }
+    try { await check(); status = { ok: true, msg: 'Conexión exitosa' } }
     catch (e) { status = { ok: false, msg: errMsg(e) } }
     busy = false
   }
   async function save(connect: boolean) {
     if (!p.name.trim()) { status = { ok: false, msg: 'El nombre es obligatorio' }; return }
     busy = true
-    try { onsaved(await api.saveConnection(p, password), connect) }
+    // Guardar y conectar solo guarda si el servidor responde con estos datos; "Guardar" no comprueba nada.
+    if (connect) {
+      status = { ok: true, msg: 'Comprobando la conexión…' }
+      try { await check() }
+      catch (e) {
+        status = { ok: false, msg: `No se pudo conectar, así que no se guardó: ${errMsg(e)}\nCorrige los datos, o usa «Guardar» para guardarla sin conectar.` }
+        busy = false
+        return
+      }
+      status = null
+    }
+    try { onsaved(await (cloneOf ? api.saveClone(cloneOf, payload(), password) : api.saveConnection(payload(), password)), connect) }
     catch (e) { status = { ok: false, msg: errMsg(e) }; busy = false }
   }
 </script>
@@ -48,7 +75,8 @@
 
 <div class="screen">
   <form class="card" onsubmit={(e) => { e.preventDefault(); save(true) }}>
-    <h3>{profile ? 'Editar conexión' : 'Nueva conexión'}</h3>
+    <h3>{cloneOf ? 'Clonar conexión' : profile ? 'Editar conexión' : 'Nueva conexión'}</h3>
+    {#if cloneOf}<p class="hint">Es una conexión nueva con los datos de la original (también su contraseña, si no escribes otra). La original no cambia.</p>{/if}
     <div class="row">
       <label>Nombre <input bind:value={p.name} /></label>
       <div class="colors" role="radiogroup" aria-label="Color de la conexión">
@@ -70,7 +98,7 @@
       </label>
     {/if}
     <label>Motor
-      <select bind:value={p.driver} onchange={onDriver}>
+      <select bind:value={p.driver}>
         {#each drivers as d}<option value={d}>{d}</option>{/each}
       </select>
     </label>
@@ -85,13 +113,13 @@
     {:else}
       <div class="row">
         <label style="flex:3">Host <input bind:value={p.host} /></label>
-        <label style="flex:1">Puerto <input type="number" bind:value={p.port} /></label>
+        <label style="flex:1">Puerto <input type="number" min="1" max="65535" bind:value={port} placeholder={defaultPort ? String(defaultPort) : ''} /></label>
       </div>
       <div class="row">
         <label>Usuario <input bind:value={p.user} autocomplete="off" /></label>
         <label>Contraseña
           <span class="pw">
-            <input type={showPw ? 'text' : 'password'} bind:value={password} placeholder={profile ? '(sin cambios)' : ''} autocomplete="new-password" />
+            <input type={showPw ? 'text' : 'password'} bind:value={password} placeholder={cloneOf ? '(la de la conexión original)' : editing ? '(sin cambios)' : ''} autocomplete="new-password" />
             <button type="button" class="eye" onclick={() => (showPw = !showPw)} title={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-label={showPw ? 'Ocultar contraseña' : 'Mostrar contraseña'} aria-pressed={showPw}><Icon name={showPw ? 'eyeoff' : 'view'} size={15} /></button>
           </span>
         </label>
@@ -128,10 +156,11 @@
     {#if status}<p class:ok={status.ok} class="status">{status.msg}</p>{/if}
     <div class="actions">
       <button type="button" onclick={oncancel}>Cancelar</button>
+      {#if editing && onclone}<button type="button" onclick={() => onclone(p)} disabled={busy} title="Empezar una conexión nueva con estos datos">Clonar</button>{/if}
       <span style="flex:1"></span>
       <button type="button" onclick={test} disabled={busy}>Probar</button>
       <button type="button" onclick={() => save(false)} disabled={busy} title="Guarda la conexión sin conectarse">Guardar</button>
-      <button type="submit" class="primary" disabled={busy}>Guardar y conectar</button>
+      <button type="submit" class="primary" disabled={busy} title="Comprueba que el servidor responde y, solo entonces, guarda y conecta">Guardar y conectar</button>
     </div>
   </form>
 </div>
@@ -158,7 +187,8 @@
   .file input { flex: 1; }
   .file button { white-space: nowrap; }
   .actions { display: flex; gap: 8px; margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
-  .status { margin: 0; color: var(--danger); word-break: break-word; }
+  .status { margin: 0; color: var(--danger); word-break: break-word; white-space: pre-wrap; }
   .status.ok { color: var(--ok); }
+  .hint { margin: 0; color: var(--muted); font-size: 12px; }
   .warn { margin: 0; color: var(--warn); font-size: 12px; }
 </style>

@@ -41,6 +41,13 @@
   // Al cambiar de conexión activa (también desde el menú de la barra inferior) se muestran sus entidades.
   const activeId = $derived(ws.active?.id)
   $effect(() => { ws.tab?.id; untrack(() => ws.followTab()) })
+  /** "X (copia)", "X (copia 2)"… sin repetir el nombre de otra conexión. */
+  function cloneName(name: string) {
+    const used = new Set(ws.profiles.map((x) => x.name))
+    let n = `${name} (copia)`
+    for (let i = 2; used.has(n); i++) n = `${name} (copia ${i})`
+    return n
+  }
   $effect(() => { if (activeId) untrack(() => { panel = 'entities'; ui.connForm = null }) })
 
   // La barra de título propia solo hace falta en Linux (la ventana va sin marco).
@@ -109,13 +116,16 @@
 
   <main>
     {#if ui.connForm}
-      <ConnectionForm profile={ui.connForm.profile} oncancel={() => (ui.connForm = null)}
-        onsaved={async (p, connect) => {
-          ui.connForm = null
-          await ws.loadProfiles()
-          if (connect) { ws.connect(p); panel = 'entities' }
-          else if (ws.active?.id === p.id) ws.active = ws.profiles.find((x) => x.id === p.id) ?? null // datos nuevos; se reconecta al usarla
-        }} />
+      {#key ui.connForm}
+        <ConnectionForm profile={ui.connForm.profile} cloneOf={ui.connForm.cloneOf} oncancel={() => (ui.connForm = null)}
+          onclone={(p) => (ui.connForm = { profile: { ...p, id: '', name: cloneName(p.name) }, cloneOf: p.id })}
+          onsaved={async (p, connect) => {
+            ui.connForm = null
+            await ws.loadProfiles()
+            if (connect) { ws.connect(p); panel = 'entities' }
+            else if (ws.active?.id === p.id) ws.active = ws.profiles.find((x) => x.id === p.id) ?? null // datos nuevos; se reconecta al usarla
+          }} />
+      {/key}
     {:else if ws.active}
       <TabBar ontoggle={() => (sidebarOpen = !sidebarOpen)} />
       {#if !ws.tab}

@@ -29,7 +29,8 @@ class UI {
   /** Id de la conexión que se está arrastrando (los datos del drag no se pueden leer en dragover). */
   dragConn = $state('')
   /** Formulario de conexión abierto en el área principal (profile null = nueva). */
-  connForm = $state<{ profile: Profile | null } | null>(null)
+  /** cloneOf: el formulario crea una conexión nueva partiendo de profile, copiando la contraseña de esa conexión. */
+  connForm = $state<{ profile: Profile | null; cloneOf?: string } | null>(null)
   exporting = $state<ExportSource | null>(null)
   importing = $state<ImportTarget | null>(null)
   scripting = $state<ScriptSource | null>(null)

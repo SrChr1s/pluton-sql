@@ -16,4 +16,6 @@ export function List():Promise<Array<config.ConnectionProfile>>;
 
 export function Save(arg1:config.ConnectionProfile,arg2:string):Promise<config.ConnectionProfile>;
 
+export function SaveClone(arg1:string,arg2:config.ConnectionProfile,arg3:string):Promise<config.ConnectionProfile>;
+
 export function Test(arg1:config.ConnectionProfile,arg2:string):Promise<void>;

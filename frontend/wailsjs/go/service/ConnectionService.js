@@ -30,6 +30,10 @@ export function Save(arg1, arg2) {
   return window['go']['service']['ConnectionService']['Save'](arg1, arg2);
 }
 
+export function SaveClone(arg1, arg2, arg3) {
+  return window['go']['service']['ConnectionService']['SaveClone'](arg1, arg2, arg3);
+}
+
 export function Test(arg1, arg2) {
   return window['go']['service']['ConnectionService']['Test'](arg1, arg2);
 }

@@ -51,6 +51,20 @@ func (s *ConnectionService) Save(p config.ConnectionProfile, password string) (c
 	return p, nil
 }
 
+// SaveClone guarda p como una conexión nueva (aunque traiga el ID de otra) basada en la conexión sourceID.
+// Si password está vacía se copia la de la original, para no obligar a escribirla de nuevo.
+func (s *ConnectionService) SaveClone(sourceID string, p config.ConnectionProfile, password string) (config.ConnectionProfile, error) {
+	if password == "" && sourceID != "" {
+		pw, err := secrets.Get(sourceID)
+		if err != nil {
+			return p, err
+		}
+		password = pw
+	}
+	p.ID = ""
+	return s.Save(p, password)
+}
+
 // Disconnect cierra los pools abiertos del perfil. La siguiente operación
 // vuelve a conectar.
 func (s *ConnectionService) Disconnect(id string) {
