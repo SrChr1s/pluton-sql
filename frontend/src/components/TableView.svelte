@@ -54,6 +54,12 @@
   let ctx = $state<{ x: number; y: number; items: MenuItem[] } | null>(null)
   function showMenu(e: MouseEvent, items: MenuItem[]) { e.preventDefault(); e.stopPropagation(); ctx = { x: e.clientX, y: e.clientY, items } }
 
+  /** Tooltip de la cabecera: nombre, tipo, nulabilidad y, si lo tiene, el comentario de la columna. */
+  function headerTitle(c: { name: string; type: string; nullable: boolean; comment?: string }) {
+    const head = `${c.name} · ${c.type}${c.nullable ? '' : ' · NOT NULL'}`
+    return `${head}${c.comment ? `\n${c.comment}` : ''}\nClic para ordenar`
+  }
+
   function columnMenu(e: MouseEvent, col: string) {
     const asc = t.orderBy === col && !t.desc, desc = t.orderBy === col && t.desc
     showMenu(e, [
@@ -298,7 +304,7 @@
             {#if cFrom > 0}<th class="cpad" colspan={cFrom}></th>{/if}
             {#each shown as c (c.name)}
               <th oncontextmenu={(e) => columnMenu(e, c.name)} aria-sort={t.orderBy === c.name ? (t.desc ? 'descending' : 'ascending') : 'none'}>
-                <button class="hd" onclick={() => t.sortBy(c.name)} title="{c.name} · {c.type}{c.nullable ? '' : ' · NOT NULL'} — clic para ordenar">
+                <button class="hd" onclick={() => t.sortBy(c.name)} title={headerTitle(c)}>
                   {#if t.keyColumns.includes(c.name) && t.page.hasPk}<span class="pk"><Icon name="key" size={11} /></span>{/if}
                   <span class="cn">{c.name}</span><span class="ct">{c.type}</span>
                   {#if t.orderBy === c.name}<Icon name={t.desc ? 'down' : 'up'} size={11} />{/if}

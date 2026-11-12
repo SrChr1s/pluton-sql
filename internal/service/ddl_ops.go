@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/SrChr1s/pluton-sql/internal/driver"
 )
@@ -17,6 +18,7 @@ type ColumnDef struct {
 	Default       string `json:"default"` // expresión SQL; vacío = sin valor por defecto
 	PrimaryKey    bool   `json:"primaryKey"`
 	AutoIncrement bool   `json:"autoIncrement"`
+	Comment       string `json:"comment"` // vacío = sin comentario (no disponible en SQLite)
 }
 
 type IndexDef struct {
@@ -83,6 +85,32 @@ func validExpr(e string) error {
 		return errors.New("el valor por defecto debe ser una sola expresión, sin ';' ni comentarios")
 	}
 	return nil
+}
+
+// validComment comprueba el comentario de una columna para el motor engine.
+func validComment(engine, comment string) error {
+	comment = strings.TrimSpace(comment)
+	if comment == "" {
+		return nil
+	}
+	if engine == "sqlite" {
+		return errors.New("SQLite no admite comentarios de columna")
+	}
+	if strings.ContainsRune(comment, 0) {
+		return errors.New("el comentario contiene caracteres no válidos")
+	}
+	if utf8.RuneCountInString(comment) > driver.MaxCommentLen {
+		return fmt.Errorf("el comentario es demasiado largo (máximo %d caracteres)", driver.MaxCommentLen)
+	}
+	return nil
+}
+
+// myComment es la cláusula COMMENT de una columna de MySQL ("" si no hay comentario).
+func myComment(comment string) string {
+	if comment = strings.TrimSpace(comment); comment == "" {
+		return ""
+	}
+	return " COMMENT " + driver.MySQLStrLit(comment)
 }
 
 func validColumnDef(c ColumnDef, needType bool) error {
@@ -163,6 +191,9 @@ func buildPlan(d driver.Dialect, ref TableRef, op SchemaOp, cur []driver.ColumnI
 		if err := validColumnDef(c, true); err != nil {
 			return nil, err
 		}
+		if err := validComment(e, c.Comment); err != nil {
+			return nil, err
+		}
 		if _, ok := current(c.Name); ok {
 			return nil, fmt.Errorf("ya existe una columna %q", c.Name)
 		}
@@ -173,7 +204,14 @@ func buildPlan(d driver.Dialect, ref TableRef, op SchemaOp, cur []driver.ColumnI
 		if e == "mssql" {
 			kw = "ADD " // T-SQL no lleva la palabra COLUMN
 		}
-		add(fmt.Sprintf("ALTER TABLE %s %s%s %s%s%s", qn, kw, d.Quote(c.Name), strings.TrimSpace(c.Type), nullSQL(e, c.Nullable), defaultSQL(c.Default)))
+		cm := ""
+		if e == "mysql" {
+			cm = myComment(c.Comment)
+		}
+		add(fmt.Sprintf("ALTER TABLE %s %s%s %s%s%s%s", qn, kw, d.Quote(c.Name), strings.TrimSpace(c.Type), nullSQL(e, c.Nullable), defaultSQL(c.Default), cm))
+		for _, s := range driver.ColumnCommentSQL(e, ref.Schema, ref.Table, c.Name, c.Comment, false) {
+			add(s)
+		}
 
 	case "drop_column":
 		if _, ok := current(op.Target); !ok {
@@ -223,11 +261,22 @@ func buildPlan(d driver.Dialect, ref TableRef, op SchemaOp, cur []driver.ColumnI
 		if err := validColumnDef(nw, true); err != nil {
 			return nil, err
 		}
+		if err := validComment(e, nw.Comment); err != nil {
+			return nil, err
+		}
 		typeChanged := !strings.EqualFold(strings.TrimSpace(nw.Type), strings.TrimSpace(old.Type))
 		nullChanged := nw.Nullable != old.Nullable
 		defChanged := strings.TrimSpace(nw.Default) != strings.TrimSpace(old.Default)
-		if !typeChanged && !nullChanged && !defChanged {
+		commentChanged := strings.TrimSpace(nw.Comment) != strings.TrimSpace(old.Comment)
+		if !typeChanged && !nullChanged && !defChanged && !commentChanged {
 			return nil, errors.New("no hay ningún cambio que aplicar")
+		}
+		setComment := func() {
+			if commentChanged {
+				for _, s := range driver.ColumnCommentSQL(e, ref.Schema, ref.Table, op.Target, nw.Comment, true) {
+					add(s)
+				}
+			}
 		}
 		if typeChanged {
 			warn("Cambiar el tipo puede fallar o perder datos si hay valores que no encajan en el nuevo tipo.")
@@ -255,13 +304,14 @@ func buildPlan(d driver.Dialect, ref TableRef, op SchemaOp, cur []driver.ColumnI
 					add(fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s SET DEFAULT %s", qn, col, strings.TrimSpace(nw.Default)))
 				}
 			}
+			setComment()
 		case "mysql":
 			auto := ""
 			if old.AutoIncrement {
 				auto = " AUTO_INCREMENT"
 			}
-			warn("MODIFY reescribe la definición completa de la columna: se conserva AUTO_INCREMENT, pero no comentarios ni collation.")
-			add(fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s %s%s%s%s", qn, col, strings.TrimSpace(nw.Type), nullSQL(e, nw.Nullable), defaultSQL(nw.Default), auto))
+			warn("MODIFY reescribe la definición completa de la columna: se conservan AUTO_INCREMENT y el comentario, pero no la collation.")
+			add(fmt.Sprintf("ALTER TABLE %s MODIFY COLUMN %s %s%s%s%s%s", qn, col, strings.TrimSpace(nw.Type), nullSQL(e, nw.Nullable), defaultSQL(nw.Default), auto, myComment(nw.Comment)))
 		case "mssql":
 			if typeChanged || nullChanged {
 				add(fmt.Sprintf("ALTER TABLE %s ALTER COLUMN %s %s%s", qn, col, strings.TrimSpace(nw.Type), nullSQL(e, nw.Nullable)))
@@ -272,6 +322,7 @@ func buildPlan(d driver.Dialect, ref TableRef, op SchemaOp, cur []driver.ColumnI
 					add(fmt.Sprintf("ALTER TABLE %s ADD DEFAULT %s FOR %s", qn, strings.TrimSpace(nw.Default), col))
 				}
 			}
+			setComment()
 		}
 
 	case "create_index":
@@ -397,8 +448,12 @@ func buildPlan(d driver.Dialect, ref TableRef, op SchemaOp, cur []driver.ColumnI
 		var lines, pk []string
 		seen := map[string]bool{}
 		sqliteInlinePK := false
+		var comments []string
 		for _, c := range op.Columns {
 			if err := validColumnDef(c, true); err != nil {
+				return nil, err
+			}
+			if err := validComment(e, c.Comment); err != nil {
 				return nil, err
 			}
 			if seen[strings.ToLower(c.Name)] {
@@ -432,12 +487,19 @@ func buildPlan(d driver.Dialect, ref TableRef, op SchemaOp, cur []driver.ColumnI
 				l += nullSQL(e, true)
 			}
 			l += defaultSQL(c.Default)
+			if e == "mysql" {
+				l += myComment(c.Comment)
+			}
+			comments = append(comments, driver.ColumnCommentSQL(e, ref.Schema, ref.Table, c.Name, c.Comment, false)...)
 			lines = append(lines, "    "+l)
 		}
 		if len(pk) > 0 && !sqliteInlinePK {
 			lines = append(lines, "    PRIMARY KEY ("+quoteList(d, pk)+")")
 		}
 		add("CREATE TABLE " + qn + " (\n" + strings.Join(lines, ",\n") + "\n)")
+		for _, s := range comments {
+			add(s)
+		}
 
 	default:
 		return nil, fmt.Errorf("operación desconocida: %q", op.Kind)

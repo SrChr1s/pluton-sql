@@ -103,6 +103,7 @@ func TestIntegrationScriptRoundTrip(t *testing.T) {
 			drop: []string{`DROP VIEW IF EXISTS scr_v`, `DROP TABLE IF EXISTS scr_child`, `DROP TABLE IF EXISTS scr_parent`, `DROP FUNCTION IF EXISTS scr_f(int)`},
 			setup: []string{
 				`CREATE TABLE scr_parent (id serial PRIMARY KEY, nombre text NOT NULL, creado timestamptz, saldo numeric(10,2), activo boolean, doble int GENERATED ALWAYS AS (id * 2) STORED)`,
+				`COMMENT ON COLUMN scr_parent.nombre IS 'Nombre d''el usuario ñ \ x'`,
 				`CREATE TABLE scr_child (id int GENERATED ALWAYS AS IDENTITY PRIMARY KEY, parent_id int NOT NULL REFERENCES scr_parent(id) ON DELETE CASCADE, nota text, bin bytea)`,
 				`CREATE INDEX scr_child_parent ON scr_child (parent_id)`,
 				`CREATE VIEW scr_v AS SELECT c.id, p.nombre FROM scr_child c JOIN scr_parent p ON p.id = c.parent_id`,
@@ -111,7 +112,8 @@ func TestIntegrationScriptRoundTrip(t *testing.T) {
 				`INSERT INTO scr_child (parent_id, nota, bin) VALUES (1, 'x', '\xff00'), (2, NULL, NULL), (2, 'línea1
 línea2', NULL)`,
 			},
-			compare: []string{`SELECT id, nombre, creado, saldo, activo, doble FROM scr_parent ORDER BY id`, `SELECT id, parent_id, nota, bin FROM scr_child ORDER BY id`, `SELECT * FROM scr_v ORDER BY id`, `SELECT scr_f(1)`},
+			compare: []string{`SELECT id, nombre, creado, saldo, activo, doble FROM scr_parent ORDER BY id`, `SELECT id, parent_id, nota, bin FROM scr_child ORDER BY id`, `SELECT * FROM scr_v ORDER BY id`, `SELECT scr_f(1)`,
+				`SELECT a.attname, col_description(a.attrelid, a.attnum) FROM pg_attribute a WHERE a.attrelid = 'scr_parent'::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum`},
 			run: func(t *testing.T, ctx context.Context, db *sql.DB, script string) {
 				if _, err := db.ExecContext(ctx, script); err != nil {
 					t.Fatalf("ejecutar el script: %v", err)
@@ -125,7 +127,7 @@ línea2', NULL)`,
 			p:    config.ConnectionProfile{Driver: "mysql", Host: "127.0.0.1", Port: 13306, User: "pluton", Database: "pluton"},
 			drop: []string{`DROP VIEW IF EXISTS scr_v`, `DROP TABLE IF EXISTS scr_child`, `DROP TABLE IF EXISTS scr_parent`, `DROP PROCEDURE IF EXISTS scr_p`},
 			setup: []string{
-				`CREATE TABLE scr_parent (id INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(50) NOT NULL, creado DATETIME, saldo DECIMAL(10,2), activo TINYINT(1), doble INT AS (id * 2) VIRTUAL)`,
+				`CREATE TABLE scr_parent (id INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(50) NOT NULL COMMENT 'Nombre d''el usuario ñ \\ x', creado DATETIME, saldo DECIMAL(10,2), activo TINYINT(1), doble INT AS (id * 2) VIRTUAL)`,
 				`CREATE TABLE scr_child (id INT AUTO_INCREMENT PRIMARY KEY, parent_id INT NOT NULL, nota TEXT, bin BLOB, KEY scr_child_parent (parent_id), CONSTRAINT scr_fk FOREIGN KEY (parent_id) REFERENCES scr_parent(id))`,
 				`CREATE VIEW scr_v AS SELECT c.id, p.nombre FROM scr_child c JOIN scr_parent p ON p.id = c.parent_id`,
 				`CREATE PROCEDURE scr_p() BEGIN SELECT 1; SELECT 2; END`,
@@ -133,7 +135,8 @@ línea2', NULL)`,
 				`INSERT INTO scr_child (parent_id, nota, bin) VALUES (1, 'x', 0xff00), (2, NULL, NULL), (2, 'línea1
 línea2', NULL)`,
 			},
-			compare: []string{`SELECT id, nombre, creado, saldo, activo, doble FROM scr_parent ORDER BY id`, `SELECT id, parent_id, nota, bin FROM scr_child ORDER BY id`, `SELECT * FROM scr_v ORDER BY id`},
+			compare: []string{`SELECT id, nombre, creado, saldo, activo, doble FROM scr_parent ORDER BY id`, `SELECT id, parent_id, nota, bin FROM scr_child ORDER BY id`, `SELECT * FROM scr_v ORDER BY id`,
+				`SELECT column_name, column_comment FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'scr_parent' ORDER BY ordinal_position`},
 			run: func(t *testing.T, ctx context.Context, db *sql.DB, script string) {
 				for _, stmt := range splitMySQL(script) {
 					if _, err := db.ExecContext(ctx, stmt); err != nil {
@@ -150,6 +153,7 @@ línea2', NULL)`,
 			drop: []string{`DROP VIEW IF EXISTS dbo.scr_v`, `DROP TABLE IF EXISTS dbo.scr_child`, `DROP TABLE IF EXISTS dbo.scr_parent`, `DROP FUNCTION IF EXISTS dbo.scr_f`},
 			setup: []string{
 				`CREATE TABLE dbo.scr_parent (id INT IDENTITY(1,1) PRIMARY KEY, nombre NVARCHAR(50) NOT NULL, creado DATETIME2, saldo DECIMAL(10,2), activo BIT, doble AS (id * 2) PERSISTED, rv ROWVERSION, uid UNIQUEIDENTIFIER)`,
+				`EXEC sys.sp_addextendedproperty N'MS_Description', N'Nombre d''el usuario ñ \ x', N'SCHEMA', N'dbo', N'TABLE', N'scr_parent', N'COLUMN', N'nombre'`,
 				`CREATE TABLE dbo.scr_child (id INT IDENTITY(5,1) PRIMARY KEY, parent_id INT NOT NULL REFERENCES dbo.scr_parent(id), nota NVARCHAR(MAX), bin VARBINARY(10))`,
 				`CREATE INDEX scr_child_parent ON dbo.scr_child (parent_id)`,
 				`CREATE VIEW dbo.scr_v AS SELECT c.id, p.nombre FROM dbo.scr_child c JOIN dbo.scr_parent p ON p.id = c.parent_id`,
@@ -158,7 +162,8 @@ línea2', NULL)`,
 				`INSERT INTO dbo.scr_child (parent_id, nota, bin) VALUES (1, N'x', 0xff00), (2, NULL, NULL), (2, N'línea1
 línea2', NULL)`,
 			},
-			compare: []string{`SELECT id, nombre, creado, saldo, activo, doble, CAST(uid AS varchar(36)) FROM dbo.scr_parent ORDER BY id`, `SELECT id, parent_id, nota, bin FROM dbo.scr_child ORDER BY id`, `SELECT * FROM dbo.scr_v ORDER BY id`, `SELECT dbo.scr_f(1)`},
+			compare: []string{`SELECT id, nombre, creado, saldo, activo, doble, CAST(uid AS varchar(36)) FROM dbo.scr_parent ORDER BY id`, `SELECT id, parent_id, nota, bin FROM dbo.scr_child ORDER BY id`, `SELECT * FROM dbo.scr_v ORDER BY id`, `SELECT dbo.scr_f(1)`,
+				`SELECT c.name, CAST(ep.value AS nvarchar(200)) FROM sys.columns c LEFT JOIN sys.extended_properties ep ON ep.class = 1 AND ep.name = N'MS_Description' AND ep.major_id = c.object_id AND ep.minor_id = c.column_id WHERE c.object_id = OBJECT_ID(N'dbo.scr_parent') ORDER BY c.column_id`},
 			run: func(t *testing.T, ctx context.Context, db *sql.DB, script string) {
 				for _, b := range splitGoBatches(script) {
 					if _, err := db.ExecContext(ctx, b.sql); err != nil {

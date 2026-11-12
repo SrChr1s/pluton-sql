@@ -38,11 +38,11 @@ button.ghost { background: transparent; border-color: transparent; }
 button.ghost:hover:not(:disabled) { background: var(--hover); }
 button.icon { padding: 4px; border-radius: 5px; }
 
-input, select {
+input, select, textarea {
   background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 5px 8px; width: 100%;
 }
-input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 kbd { font: 11px var(--mono); background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 0 5px; color: var(--muted); }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }

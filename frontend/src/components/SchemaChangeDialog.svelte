@@ -15,6 +15,7 @@
 
   const driver = ws.active?.driver ?? ''
   const mysql = driver === 'mysql'
+  const hasComments = driver !== 'sqlite' // SQLite no tiene comentarios de columna
   const cols = structure?.columns ?? []
   const current = cols.find((c) => c.name === target)
 
@@ -29,6 +30,7 @@
   let colType = $state(current?.type ?? '')
   let colNullable = $state(current ? current.nullable : true)
   let colDefault = $state(current?.default ?? '')
+  let colComment = $state(current?.comment ?? '')
   let newName = $state(kind === 'rename_column' || kind === 'rename_table' ? (kind === 'rename_table' ? loc.table : target) : '')
   let idxName = $state('')
   let idxCols = $state<string[]>([])
@@ -41,10 +43,10 @@
   let fkOnUpdate = $state('')
   let refTables = $state<Table[]>([])
   let refColumns = $state<string[]>([])
-  type NewCol = { name: string; type: string; nullable: boolean; default: string; primaryKey: boolean; autoIncrement: boolean }
+  type NewCol = { name: string; type: string; nullable: boolean; default: string; primaryKey: boolean; autoIncrement: boolean; comment: string }
   let tableName = $state('')
   const intType = driver === 'sqlite' ? 'INTEGER' : 'int'
-  let newCols = $state<NewCol[]>([{ name: 'id', type: intType, nullable: false, default: '', primaryKey: true, autoIncrement: true }])
+  let newCols = $state<NewCol[]>([{ name: 'id', type: intType, nullable: false, default: '', primaryKey: true, autoIncrement: true, comment: '' }])
 
   const types: Record<string, string[]> = {
     postgres: ['integer', 'bigint', 'smallint', 'text', 'varchar(255)', 'boolean', 'numeric(10,2)', 'date', 'timestamp', 'timestamptz', 'uuid', 'jsonb', 'bytea'],
@@ -86,8 +88,8 @@
   function buildOp(): SchemaOp {
     const base = { kind, target: '', newName: '' } as Record<string, unknown>
     switch (kind) {
-      case 'add_column': base.column = { name: colName, type: colType, nullable: colNullable, default: colDefault, primaryKey: false, autoIncrement: false }; break
-      case 'alter_column': base.target = target; base.column = { name: target, type: colType, nullable: colNullable, default: colDefault, primaryKey: false, autoIncrement: false }; break
+      case 'add_column': base.column = { name: colName, type: colType, nullable: colNullable, default: colDefault, primaryKey: false, autoIncrement: false, comment: colComment }; break
+      case 'alter_column': base.target = target; base.column = { name: target, type: colType, nullable: colNullable, default: colDefault, primaryKey: false, autoIncrement: false, comment: colComment }; break
       case 'rename_column': base.target = target; base.newName = newName; break
       case 'drop_column': base.target = target; break
       case 'rename_table': base.newName = newName; break
@@ -126,7 +128,7 @@
     } catch (e) { error = errMsg(e); busy = false }
   }
 
-  function addNewCol() { newCols.push({ name: '', type: types[driver]?.[0] ?? '', nullable: true, default: '', primaryKey: false, autoIncrement: false }) }
+  function addNewCol() { newCols.push({ name: '', type: types[driver]?.[0] ?? '', nullable: true, default: '', primaryKey: false, autoIncrement: false, comment: '' }) }
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && !busy && oncancel()} />
@@ -153,6 +155,9 @@
           <datalist id="sc-types">{#each types[driver] ?? [] as t}<option value={t}></option>{/each}</datalist>
           <label class="check"><input type="checkbox" bind:checked={colNullable} /> Admite NULL</label>
           <label>Valor por defecto <input bind:value={colDefault} placeholder="expresión SQL, p. ej. 0, 'x' o now() — vacío = ninguno" class="mono" /></label>
+          {#if hasComments}
+            <label>Comentario <textarea bind:value={colComment} rows="2" maxlength="1024" placeholder="descripción de la columna — vacío = ninguno"></textarea></label>
+          {/if}
         {:else if kind === 'rename_column' || kind === 'rename_table'}
           <label>Nombre nuevo <input bind:value={newName} required /></label>
         {:else if kind === 'drop_column'}
@@ -196,8 +201,8 @@
         {:else if kind === 'create_table'}
           <label>Nombre de la tabla <input bind:value={tableName} required /></label>
           <p class="sub">en {loc.schema ? `${loc.schema} · ` : ''}{loc.database}</p>
-          <div class="grid">
-            <div class="gh">Nombre</div><div class="gh">Tipo</div><div class="gh c">NULL</div><div class="gh">Por defecto</div><div class="gh c">PK</div><div class="gh c">AUTO</div><div class="gh"></div>
+          <div class="grid" class:nocomment={!hasComments}>
+            <div class="gh">Nombre</div><div class="gh">Tipo</div><div class="gh c">NULL</div><div class="gh">Por defecto</div><div class="gh c">PK</div><div class="gh c">AUTO</div>{#if hasComments}<div class="gh">Comentario</div>{/if}<div class="gh"></div>
             {#each newCols as c, i (i)}
               <input bind:value={c.name} aria-label="Nombre de la columna {i + 1}" required />
               <input bind:value={c.type} list="sc-types" aria-label="Tipo de la columna {i + 1}" required />
@@ -205,6 +210,7 @@
               <input bind:value={c.default} class="mono" aria-label="Valor por defecto" />
               <input type="checkbox" bind:checked={c.primaryKey} onchange={() => { if (c.primaryKey) c.nullable = false }} aria-label="Clave primaria" />
               <input type="checkbox" bind:checked={c.autoIncrement} aria-label="Autoincremento" />
+              {#if hasComments}<input bind:value={c.comment} maxlength="1024" aria-label="Comentario de la columna {i + 1}" />{/if}
               <button type="button" class="ghost icon" aria-label="Quitar columna" onclick={() => newCols.splice(i, 1)} disabled={newCols.length === 1}><Icon name="x" size={13} /></button>
             {/each}
           </div>
@@ -264,7 +270,9 @@
   .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
   button.dng, button.dng:hover:not(:disabled) { background: var(--danger); border-color: var(--danger); color: #fff; }
   button.dng:hover:not(:disabled) { filter: brightness(1.1); }
-  .grid { display: grid; grid-template-columns: 1.3fr 1.3fr 44px 1fr 44px 54px 30px; gap: 6px 8px; align-items: center; }
+  .grid { display: grid; grid-template-columns: 1.3fr 1.3fr 44px 1fr 44px 54px 1.4fr 30px; gap: 6px 8px; align-items: center; }
+  .grid.nocomment { grid-template-columns: 1.3fr 1.3fr 44px 1fr 44px 54px 30px; }
+  textarea { resize: vertical; }
   .gh { font-size: 11px; color: var(--muted); font-weight: 600; }
   .gh.c { text-align: center; }
   .grid input[type='checkbox'] { justify-self: center; width: auto; }

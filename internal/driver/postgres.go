@@ -93,7 +93,8 @@ func (postgres) ListColumns(ctx context.Context, db *sql.DB, schema, table strin
 		SELECT a.attname, format_type(a.atttypid, a.atttypmod), NOT a.attnotnull,
 		  COALESCE(pg_get_expr(d.adbin, d.adrelid), ''),
 		  EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = c.oid AND i.indisprimary AND a.attnum = ANY (i.indkey)),
-		  a.attidentity <> '' OR COALESCE(pg_get_expr(d.adbin, d.adrelid), '') LIKE 'nextval(%'
+		  a.attidentity <> '' OR COALESCE(pg_get_expr(d.adbin, d.adrelid), '') LIKE 'nextval(%',
+		  COALESCE(col_description(c.oid, a.attnum), '')
 		FROM pg_attribute a
 		JOIN pg_class c ON c.oid = a.attrelid
 		JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -136,7 +137,7 @@ func scanColumns(rows *sql.Rows) ([]ColumnInfo, error) {
 	var out []ColumnInfo
 	for rows.Next() {
 		var c ColumnInfo
-		if err := rows.Scan(&c.Name, &c.Type, &c.Nullable, &c.Default, &c.PrimaryKey, &c.AutoIncrement); err != nil {
+		if err := rows.Scan(&c.Name, &c.Type, &c.Nullable, &c.Default, &c.PrimaryKey, &c.AutoIncrement, &c.Comment); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
@@ -217,6 +218,9 @@ func (p postgres) TableDDL(ctx context.Context, db *sql.DB, schema, table string
 		return view, nil
 	}
 	out := ts.Create
+	for _, c := range ts.Comments {
+		out += "\n" + c + ";"
+	}
 	for _, ix := range ts.Indexes {
 		out += "\n\n" + ix
 	}
@@ -258,7 +262,8 @@ func (p postgres) describe(ctx context.Context, db *sql.DB, schema, table string
 	cols, err := db.QueryContext(ctx, `
 		SELECT a.attname, format_type(a.atttypid, a.atttypmod), a.attnotnull, a.attidentity::text, a.attgenerated::text,
 		       COALESCE(pg_get_expr(d.adbin, d.adrelid), ''),
-		       pg_get_serial_sequence($2, a.attname) IS NOT NULL
+		       pg_get_serial_sequence($2, a.attname) IS NOT NULL,
+		       COALESCE(col_description(a.attrelid, a.attnum), '')
 		FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
 		WHERE a.attrelid = $1::oid AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum`, oid, qn)
 	if err != nil {
@@ -266,11 +271,12 @@ func (p postgres) describe(ctx context.Context, db *sql.DB, schema, table string
 	}
 	defer cols.Close()
 	for cols.Next() {
-		var name, typ, ident, gen, def string
+		var name, typ, ident, gen, def, comment string
 		var notNull, ownsSeq bool
-		if err := cols.Scan(&name, &typ, &notNull, &ident, &gen, &def, &ownsSeq); err != nil {
+		if err := cols.Scan(&name, &typ, &notNull, &ident, &gen, &def, &ownsSeq, &comment); err != nil {
 			return "", ts, err
 		}
+		ts.Comments = append(ts.Comments, ColumnCommentSQL("postgres", schema, table, name, comment, false)...)
 		// serial/bigserial crean su propia secuencia: copiar "DEFAULT nextval(...)" fallaría al recrear la tabla.
 		if serial, ok := map[string]string{"integer": "serial", "bigint": "bigserial", "smallint": "smallserial"}[typ]; ok &&
 			ident == "" && ownsSeq && strings.HasPrefix(def, "nextval(") {

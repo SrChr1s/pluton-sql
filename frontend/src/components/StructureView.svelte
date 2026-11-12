@@ -9,6 +9,7 @@
   const t = $derived(tab.state)
   const st = $derived(t.structure)
   let copied = $state(false)
+  const hasComments = $derived(ws.active?.driver !== 'sqlite') // SQLite no tiene comentarios de columna
 
   // Al abrir la vista, o al volver a ella tras un cambio, la estructura puede no estar cargada.
   $effect(() => { if (!t.structure && !t.structureLoading && !t.structureError) void t.loadStructure() })
@@ -60,7 +61,7 @@
       <section>
         <h3>Columnas <span class="count">{st.columns.length}</span><span class="grow"></span>{#if !st.isView}<button onclick={() => change('add_column')}><Icon name="plus" size={12} /> Columna</button>{/if}</h3>
         <table>
-          <thead><tr><th class="n">#</th><th>Nombre</th><th>Tipo</th><th>Nulo</th><th>Por defecto</th><th></th>{#if !st.isView}<th></th>{/if}</tr></thead>
+          <thead><tr><th class="n">#</th><th>Nombre</th><th>Tipo</th><th>Nulo</th><th>Por defecto</th>{#if hasComments}<th>Comentario</th>{/if}<th></th>{#if !st.isView}<th></th>{/if}</tr></thead>
           <tbody>
             {#each st.columns as c, i (c.name)}
               <tr>
@@ -69,6 +70,7 @@
                 <td class="mono">{c.type}</td>
                 <td>{c.nullable ? 'sí' : 'NO'}</td>
                 <td class="mono dflt" title={c.default}>{c.default}</td>
+                {#if hasComments}<td class="cmt" title={c.comment}>{c.comment}</td>{/if}
                 <td class="flags">
                   {#if c.primaryKey}<span class="tag pk"><Icon name="key" size={10} /> PK</span>{/if}
                   {#if c.autoIncrement}<span class="tag">AUTO</span>{/if}
@@ -170,6 +172,7 @@
   .name { font-weight: 600; }
   .mono { font: 12px var(--mono); }
   .dflt { color: var(--muted); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cmt { color: var(--muted); max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .flags, .acts { white-space: nowrap; }
   .rowacts { width: 1%; text-align: right; padding: 2px 6px; }
   .rowacts button { opacity: 0; padding: 3px; }

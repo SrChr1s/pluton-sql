@@ -247,3 +247,96 @@ func TestSchemaEditLifecycleSQLite(t *testing.T) {
 		t.Error("Preview no debe ejecutar la operación")
 	}
 }
+
+func TestBuildPlanColumnComments(t *testing.T) {
+	pg, my, ms, lite := TableRef{Schema: "public", Table: "t"}, TableRef{Table: "t"}, TableRef{Schema: "dbo", Table: "t"}, TableRef{Table: "t"}
+	withComment := []driver.ColumnInfo{
+		{Name: "id", Type: "int", PrimaryKey: true},
+		{Name: "nota", Type: "text", Nullable: true, Comment: "antes"},
+	}
+	planWith := func(engine string, ref TableRef, op SchemaOp, cur []driver.ColumnInfo) (*SchemaPlan, error) {
+		return buildPlan(dialect(t, engine), ref, op, cur, false)
+	}
+	alter := func(typ, comment string) SchemaOp {
+		return SchemaOp{Kind: "alter_column", Target: "nota", Column: &ColumnDef{Name: "nota", Type: typ, Nullable: true, Comment: comment}}
+	}
+	must := func(engine string, ref TableRef, op SchemaOp, cur []driver.ColumnInfo) string {
+		t.Helper()
+		p, err := planWith(engine, ref, op, cur)
+		if err != nil {
+			t.Fatalf("%s %s: %v", engine, op.Kind, err)
+		}
+		return joined(p)
+	}
+	has := func(engine, got string, wants ...string) {
+		t.Helper()
+		for _, w := range wants {
+			if !strings.Contains(got, w) {
+				t.Errorf("%s: falta %q en:\n%s", engine, w, got)
+			}
+		}
+	}
+
+	// Solo cambia el comentario.
+	got := must("postgres", pg, alter("text", "nuevo 'q'"), withComment)
+	has("postgres", got, `COMMENT ON COLUMN "public"."t"."nota" IS 'nuevo ''q'''`)
+	if strings.Contains(got, "ALTER TABLE") {
+		t.Errorf("postgres: un cambio solo de comentario no debe tocar la columna:\n%s", got)
+	}
+	has("postgres", must("postgres", pg, alter("text", ""), withComment), `IS NULL`)
+	got = must("mssql", ms, alter("text", "nuevo"), withComment)
+	has("mssql", got, "sp_dropextendedproperty", "sp_addextendedproperty N'MS_Description', N'nuevo'", "N'SCHEMA', N'dbo', N'TABLE', N't', N'COLUMN', N'nota'")
+	got = must("mssql", ms, alter("text", ""), withComment)
+	has("mssql", got, "sp_dropextendedproperty")
+	if strings.Contains(got, "sp_addextendedproperty") {
+		t.Errorf("mssql: vaciar el comentario solo borra la propiedad:\n%s", got)
+	}
+
+	// MySQL: MODIFY reescribe la columna, así que el comentario va siempre y cambiar el tipo no lo pierde.
+	has("mysql", must("mysql", my, alter("text", "con \\ barra y 'comilla'"), withComment), "MODIFY COLUMN `nota` text COMMENT 'con \\\\ barra y ''comilla'''")
+	has("mysql", must("mysql", my, alter("mediumtext", "antes"), withComment), "MODIFY COLUMN `nota` mediumtext COMMENT 'antes'")
+	if got := must("mysql", my, alter("mediumtext", ""), withComment); strings.Contains(got, "COMMENT") {
+		t.Errorf("mysql: sin comentario no debe haber cláusula COMMENT:\n%s", got)
+	}
+
+	// Sin cambios (mismo comentario, mismo resto): sigue siendo un error.
+	if _, err := planWith("postgres", pg, alter("text", "antes"), withComment); err == nil {
+		t.Error("sin ningún cambio debe fallar")
+	}
+
+	// add_column.
+	add := SchemaOp{Kind: "add_column", Column: &ColumnDef{Name: "edad", Type: "int", Nullable: true, Comment: "años"}}
+	has("postgres", must("postgres", pg, add, cols), `ADD COLUMN "edad" int`, `COMMENT ON COLUMN "public"."t"."edad" IS 'años'`)
+	has("mysql", must("mysql", my, add, cols), "ADD COLUMN `edad` int COMMENT 'años'")
+	has("mssql", must("mssql", ms, add, cols), "ADD [edad] int NULL", "sp_addextendedproperty N'MS_Description', N'años'")
+
+	// create_table.
+	defs := []ColumnDef{{Name: "id", Type: "int", PrimaryKey: true, Comment: "clave"}, {Name: "nombre", Type: "varchar(30)", Comment: "d'Artagnan"}}
+	ct := SchemaOp{Kind: "create_table", Columns: defs}
+	got = must("postgres", pg, ct, nil)
+	has("postgres", got, `IS 'clave'`, `IS 'd''Artagnan'`)
+	has("mysql", must("mysql", my, ct, nil), "`id` int NOT NULL COMMENT 'clave'", "COMMENT 'd''Artagnan'")
+	has("mssql", must("mssql", ms, ct, nil), "N'clave'", "N'd''Artagnan'")
+	p, _ := planWith("postgres", pg, ct, nil)
+	if !strings.HasPrefix(p.Statements[0], "CREATE TABLE") || len(p.Statements) != 3 {
+		t.Errorf("postgres: el CREATE va primero y luego un COMMENT por columna: %q", p.Statements)
+	}
+
+	// Rechazos: SQLite no tiene comentarios, y el límite de longitud.
+	for _, op := range []SchemaOp{add, alter("text", "x"), ct} {
+		if _, err := planWith("sqlite", lite, op, withComment); err == nil || !strings.Contains(err.Error(), "SQLite") {
+			t.Errorf("sqlite %s con comentario debe rechazarse: %v", op.Kind, err)
+		}
+	}
+	long := strings.Repeat("x", driver.MaxCommentLen+1)
+	if _, err := planWith("postgres", pg, alter("text", long), withComment); err == nil {
+		t.Error("un comentario demasiado largo debe rechazarse")
+	}
+	if _, err := planWith("mysql", my, alter("text", "a\x00b"), withComment); err == nil {
+		t.Error("un comentario con NUL debe rechazarse")
+	}
+	ok := strings.Repeat("ñ", driver.MaxCommentLen) // el límite cuenta caracteres, no bytes
+	if _, err := planWith("mysql", my, alter("text", ok), withComment); err != nil {
+		t.Errorf("el límite exacto debe aceptarse: %v", err)
+	}
+}

@@ -111,7 +111,11 @@ func (mssql) ListColumns(ctx context.Context, db *sql.DB, schema, table string) 
 		    JOIN information_schema.key_column_usage k ON k.constraint_name=tc.constraint_name AND k.table_schema=tc.table_schema
 		    WHERE tc.constraint_type='PRIMARY KEY' AND tc.table_schema=c.table_schema AND tc.table_name=c.table_name AND k.column_name=c.column_name)
 		  THEN 1 ELSE 0 END,
-		  CASE WHEN COLUMNPROPERTY(OBJECT_ID(QUOTENAME(c.table_schema) + '.' + QUOTENAME(c.table_name)), c.column_name, 'IsIdentity') = 1 THEN 1 ELSE 0 END
+		  CASE WHEN COLUMNPROPERTY(OBJECT_ID(QUOTENAME(c.table_schema) + '.' + QUOTENAME(c.table_name)), c.column_name, 'IsIdentity') = 1 THEN 1 ELSE 0 END,
+		  ISNULL((SELECT CAST(ep.value AS nvarchar(4000)) FROM sys.extended_properties ep
+		    WHERE ep.class = 1 AND ep.name = N'MS_Description'
+		      AND ep.major_id = OBJECT_ID(QUOTENAME(c.table_schema) + '.' + QUOTENAME(c.table_name))
+		      AND ep.minor_id = COLUMNPROPERTY(ep.major_id, c.column_name, 'ColumnId')), N'')
 		FROM information_schema.columns c
 		WHERE c.table_schema=@p1 AND c.table_name=@p2 ORDER BY c.ordinal_position`, schema, table)
 	if err != nil {
@@ -208,6 +212,9 @@ func (m mssql) TableDDL(ctx context.Context, db *sql.DB, schema, table string, i
 		return "", err
 	}
 	out := ts.Create
+	for _, c := range ts.Comments {
+		out += "\n" + c + ";"
+	}
 	if tail := append(append([]string{}, ts.Indexes...), ts.ForeignKeys...); len(tail) > 0 {
 		out += "\n\n" + strings.Join(tail, "\n")
 	}
@@ -254,6 +261,7 @@ func (m mssql) TableScript(ctx context.Context, db *sql.DB, schema, table string
 
 	var lines []string
 	for _, c := range cols {
+		ts.Comments = append(ts.Comments, ColumnCommentSQL("mssql", schema, table, c.Name, c.Comment, false)...)
 		if sp, ok := specials[c.Name]; ok {
 			ts.SkipColumns = append(ts.SkipColumns, c.Name)
 			if sp.computed {

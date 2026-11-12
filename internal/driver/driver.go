@@ -24,6 +24,9 @@ type ColumnInfo struct {
 	Default    string `json:"default"`
 	// AutoIncrement: el motor genera el valor (AUTO_INCREMENT, IDENTITY, serial, rowid).
 	AutoIncrement bool `json:"autoIncrement"`
+	// Comment es el comentario de la columna (PostgreSQL: COMMENT ON; MySQL: COMMENT; SQL Server: MS_Description).
+	// SQLite no tiene comentarios y siempre lo deja vacío.
+	Comment string `json:"comment"`
 }
 
 type IndexInfo struct {
@@ -88,6 +91,9 @@ type TableScript struct {
 	Identity bool `json:"identity"`
 	// SeqColumns son las columnas serial/identity de PostgreSQL, cuya secuencia hay que reajustar tras insertar datos.
 	SeqColumns []string `json:"seqColumns"`
+	// Comments son las sentencias que fijan los comentarios de columna, para ejecutar tras el CREATE TABLE.
+	// Vacío en MySQL (el COMMENT va dentro del CREATE) y en SQLite.
+	Comments []string `json:"comments"`
 }
 
 // Dialect encapsula DSN y consultas de catálogo de un motor.

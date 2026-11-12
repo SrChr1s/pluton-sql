@@ -60,6 +60,7 @@ export namespace driver {
 	    primaryKey: boolean;
 	    default: string;
 	    autoIncrement: boolean;
+	    comment: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ColumnInfo(source);
@@ -73,6 +74,7 @@ export namespace driver {
 	        this.primaryKey = source["primaryKey"];
 	        this.default = source["default"];
 	        this.autoIncrement = source["autoIncrement"];
+	        this.comment = source["comment"];
 	    }
 	}
 	export class ForeignKeyInfo {
@@ -366,6 +368,7 @@ export namespace service {
 	    default: string;
 	    primaryKey: boolean;
 	    autoIncrement: boolean;
+	    comment: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ColumnDef(source);
@@ -379,6 +382,7 @@ export namespace service {
 	        this.default = source["default"];
 	        this.primaryKey = source["primaryKey"];
 	        this.autoIncrement = source["autoIncrement"];
+	        this.comment = source["comment"];
 	    }
 	}
 	export class ExportRequest {

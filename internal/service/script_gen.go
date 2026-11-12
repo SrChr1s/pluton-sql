@@ -186,6 +186,9 @@ func generateScript(ctx context.Context, db *sql.DB, d driver.Dialect, database 
 				continue
 			}
 			g.emit(t.ts.Create)
+			for _, c := range t.ts.Comments {
+				g.emit(c)
+			}
 			g.stats.Objects++
 		}
 	}

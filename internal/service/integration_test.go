@@ -661,3 +661,136 @@ func TestIntegrationListAllColumns(t *testing.T) {
 		})
 	}
 }
+
+// Comentarios de columna: crear, leer, cambiar el tipo sin perderlos, vaciar y verlos en el DDL.
+func TestIntegrationColumnComments(t *testing.T) {
+	cases := []struct {
+		name, schema string
+		p            config.ConnectionProfile
+	}{
+		{"postgres", "public", config.ConnectionProfile{Driver: "postgres", Host: "127.0.0.1", Port: 15432, User: "pluton", Database: "pluton", SSLMode: "disable"}},
+		{"mysql", "", config.ConnectionProfile{Driver: "mysql", Host: "127.0.0.1", Port: 13306, User: "pluton", Database: "pluton"}},
+		{"mssql", "dbo", config.ConnectionProfile{Driver: "mssql", Host: "127.0.0.1", Port: 11433, User: "sa", Database: "master"}},
+	}
+	const quoted = `Nombre d'el usuario ñ \ y "dobles"`
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			defer cancel()
+			db, d := openOrSkip(t, ctx, tc.name, tc.p)
+			defer db.Close()
+			drop := func() { db.Exec("DROP TABLE IF EXISTS " + d.Quote("cm_t")) }
+			drop()
+			defer drop()
+			pools := fakePools{db, d}
+			edit, desc := NewSchemaEditService(pools), NewStructureService(pools)
+			ref := TableRef{Profile: "p", Schema: tc.schema, Table: "cm_t"}
+			apply := func(op SchemaOp) {
+				t.Helper()
+				if _, err := edit.Apply(ref, op); err != nil {
+					t.Fatalf("%s: %v", op.Kind, err)
+				}
+			}
+			comment := func(name string) string {
+				t.Helper()
+				st, err := desc.Describe(ref)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, c := range st.Columns {
+					if c.Name == name {
+						return c.Comment
+					}
+				}
+				t.Fatalf("no existe la columna %q", name)
+				return ""
+			}
+			ddl := func() string {
+				t.Helper()
+				st, err := desc.Describe(ref)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return st.DDL
+			}
+
+			apply(SchemaOp{Kind: "create_table", Columns: []ColumnDef{
+				{Name: "id", Type: "int", PrimaryKey: true, Comment: "clave"},
+				{Name: "nombre", Type: "varchar(40)", Comment: quoted},
+				{Name: "nota", Type: "varchar(100)", Nullable: true},
+			}})
+			if got := comment("nombre"); got != quoted {
+				t.Fatalf("create_table: comentario = %q, quería %q", got, quoted)
+			}
+			if comment("id") != "clave" || comment("nota") != "" {
+				t.Errorf("create_table: id=%q nota=%q", comment("id"), comment("nota"))
+			}
+			if ddl := ddl(); !strings.Contains(ddl, "clave") || !strings.Contains(ddl, "Nombre d") {
+				t.Errorf("el DDL debe llevar los comentarios:\n%s", ddl)
+			}
+
+			// Cambiar solo el comentario.
+			apply(SchemaOp{Kind: "alter_column", Target: "nota", Column: &ColumnDef{Type: "varchar(100)", Nullable: true, Comment: "ahora sí"}})
+			if got := comment("nota"); got != "ahora sí" {
+				t.Errorf("alter_column (solo comentario): %q", got)
+			}
+			// Cambiar el tipo, conservando el comentario (MySQL lo borraría con un MODIFY sin COMMENT).
+			apply(SchemaOp{Kind: "alter_column", Target: "nota", Column: &ColumnDef{Type: "varchar(200)", Nullable: true, Comment: "ahora sí"}})
+			if got := comment("nota"); got != "ahora sí" {
+				t.Errorf("alter_column (tipo): el comentario se perdió: %q", got)
+			}
+			// Cambiar otra vez el texto, ya existiendo uno.
+			apply(SchemaOp{Kind: "alter_column", Target: "nota", Column: &ColumnDef{Type: "varchar(200)", Nullable: true, Comment: "otro"}})
+			if got := comment("nota"); got != "otro" {
+				t.Errorf("alter_column (reemplazar): %q", got)
+			}
+			// Renombrar conserva el comentario.
+			apply(SchemaOp{Kind: "rename_column", Target: "nota", NewName: "detalle"})
+			if got := comment("detalle"); got != "otro" {
+				t.Errorf("rename_column: %q", got)
+			}
+			// Vaciar.
+			apply(SchemaOp{Kind: "alter_column", Target: "detalle", Column: &ColumnDef{Type: "varchar(200)", Nullable: true}})
+			if got := comment("detalle"); got != "" {
+				t.Errorf("vaciar el comentario: %q", got)
+			}
+			// Añadir una columna con comentario.
+			apply(SchemaOp{Kind: "add_column", Column: &ColumnDef{Name: "edad", Type: "int", Nullable: true, Comment: "años cumplidos"}})
+			if got := comment("edad"); got != "años cumplidos" {
+				t.Errorf("add_column: %q", got)
+			}
+			// El DDL generado se puede volver a ejecutar y conserva los comentarios (ida y vuelta).
+			want := map[string]string{}
+			st, _ := desc.Describe(ref)
+			for _, c := range st.Columns {
+				want[c.Name] = c.Comment
+			}
+			script := st.DDL
+			drop()
+			var batches []string
+			switch tc.name {
+			case "mysql":
+				batches = []string{script}
+			case "mssql":
+				for _, s := range strings.Split(script, ";\n") { // una sentencia por línea tras el CREATE
+					batches = append(batches, s)
+				}
+			default:
+				batches = []string{script}
+			}
+			for _, b := range batches {
+				if strings.TrimSpace(b) == "" {
+					continue
+				}
+				if _, err := db.ExecContext(ctx, b); err != nil {
+					t.Fatalf("recrear desde el DDL: %v\n%s", err, b)
+				}
+			}
+			for name, c := range want {
+				if got := comment(name); got != c {
+					t.Errorf("ida y vuelta: %s = %q, quería %q", name, got, c)
+				}
+			}
+		})
+	}
+}
